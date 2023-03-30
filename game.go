@@ -1,10 +1,13 @@
 package main
 
 import (
+	"image"
 	"image/color"
 	"math"
 
+	"github.com/bmcszk/gptrts/pkg/optional"
 	"github.com/hajimehoshi/ebiten/v2"
+	"github.com/hajimehoshi/ebiten/v2/ebitenutil"
 )
 
 const (
@@ -16,19 +19,22 @@ const (
 type Game struct {
 	Map              *Map
 	Units            []*Unit
-	Player           *Unit
 	cameraX, cameraY int
+	selectionBox optional.Optional[image.Rectangle]
 }
 
 func (g *Game) Init() {
 	// Initialize the map tiles
 	g.Map = NewMap()
-	playerUnit := &Unit{
+	unit1 := &Unit{
 		X: 3, Y: 3, Color: color.RGBA{255, 0, 0, 255}, Width: 32, Height: 32,
 	}
 
-	g.Player = playerUnit
-	g.Units = append(g.Units, playerUnit)
+	unit2 := &Unit{
+		X: 20, Y: 10, Color: color.RGBA{0, 0, 255, 255}, Width: 32, Height: 32,
+	}
+
+	g.Units = append(g.Units, unit1, unit2)
 }
 
 func (g *Game) Layout(outsideWidth, outsideHeight int) (screenWidth, screenHeight int) {
@@ -54,6 +60,15 @@ func (g *Game) Draw(screen *ebiten.Image) {
 	for _, unit := range g.Units {
 		unit.Draw(screen, g.cameraX, g.cameraY)
 	}
+
+	// Draw the selection box
+	g.selectionBox.IfPresent(optional.Consumer(func(r image.Rectangle) {
+		x1, y1 := g.worldToScreen(r.Min.X, r.Min.Y)
+        x2, y2 := g.worldToScreen(r.Max.X, r.Max.Y)
+
+		col := color.RGBA{0, 255, 0, 128}
+		ebitenutil.DrawRect(screen, float64(x1), float64(y1), float64(x2-x1), float64(y2-y1), col)
+	}))
 }
 
 func (g *Game) Update() error {
@@ -76,14 +91,24 @@ func (g *Game) Update() error {
 		mx, my := ebiten.CursorPosition()
 		worldX, worldY := g.screenToWorld(mx, my)
 
+		g.selectionBox = g.selectionBox.IfPresent(func(r image.Rectangle) image.Rectangle {
+			r.Max = image.Pt(worldX + 1, worldY + 1)
+			return r
+		}).OrElse(image.Rect(worldX, worldY, worldX, worldY))
+	} else {
+		g.selectionBox = optional.Empty[image.Rectangle]()
+	}
+
+	g.selectionBox.IfPresent(optional.Consumer(func(r image.Rectangle) {
 		for _, u := range g.Units {
-			if u.Contains(worldX, worldY) {
+			unitRect := image.Rect(int(u.X), int(u.Y), int(u.X)+int(u.Width), int(u.Y)+int(u.Height))
+			if r.Canon().Overlaps(unitRect) {
 				u.Selected = true
 			} else {
 				u.Selected = false
 			}
 		}
-	}
+	}))
 
 	// Handle right mouse button click to move selected units
 	if ebiten.IsMouseButtonPressed(ebiten.MouseButtonRight) && ebiten.IsFocused() {
@@ -110,4 +135,10 @@ func (g *Game) screenToWorld(screenX, screenY int) (int, int) {
 	worldX := screenX + g.cameraX
 	worldY := screenY + g.cameraY
 	return worldX, worldY
+}
+
+func (g *Game) worldToScreen(worldX, worldY int) (int, int) {
+	screenX := worldX - g.cameraX
+	screenY := worldY - g.cameraY
+	return screenX, screenY
 }
