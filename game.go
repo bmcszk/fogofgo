@@ -5,7 +5,7 @@ import (
 	"image/color"
 	"math"
 
-	"github.com/bmcszk/gptrts/pkg/optional"
+	"github.com/bmcszk/gptrts/pkg/convert"
 	"github.com/hajimehoshi/ebiten/v2"
 	"github.com/hajimehoshi/ebiten/v2/ebitenutil"
 )
@@ -20,7 +20,7 @@ type Game struct {
 	Map              *Map
 	Units            []*Unit
 	cameraX, cameraY int
-	selectionBox optional.Optional[image.Rectangle]
+	selectionBox     *image.Rectangle
 }
 
 func (g *Game) Init() {
@@ -62,13 +62,14 @@ func (g *Game) Draw(screen *ebiten.Image) {
 	}
 
 	// Draw the selection box
-	g.selectionBox.IfPresent(optional.Consumer(func(r image.Rectangle) {
+	if g.selectionBox != nil {
+		r := *g.selectionBox
 		x1, y1 := g.worldToScreen(r.Min.X, r.Min.Y)
-        x2, y2 := g.worldToScreen(r.Max.X, r.Max.Y)
+		x2, y2 := g.worldToScreen(r.Max.X, r.Max.Y)
 
 		col := color.RGBA{0, 255, 0, 128}
 		ebitenutil.DrawRect(screen, float64(x1), float64(y1), float64(x2-x1), float64(y2-y1), col)
-	}))
+	}
 }
 
 func (g *Game) Update() error {
@@ -91,15 +92,17 @@ func (g *Game) Update() error {
 		mx, my := ebiten.CursorPosition()
 		worldX, worldY := g.screenToWorld(mx, my)
 
-		g.selectionBox = g.selectionBox.IfPresent(func(r image.Rectangle) image.Rectangle {
-			r.Max = image.Pt(worldX + 1, worldY + 1)
-			return r
-		}).OrElse(image.Rect(worldX, worldY, worldX, worldY))
+		if g.selectionBox == nil {
+			g.selectionBox = convert.ToPointer(image.Rect(worldX, worldY, worldX+1, worldY+1))
+		} else {
+			g.selectionBox.Max = image.Pt(worldX+1, worldY+1)
+		}
 	} else {
-		g.selectionBox = optional.Empty[image.Rectangle]()
+		g.selectionBox = nil
 	}
 
-	g.selectionBox.IfPresent(optional.Consumer(func(r image.Rectangle) {
+	if g.selectionBox != nil {
+		r := *g.selectionBox
 		for _, u := range g.Units {
 			unitRect := image.Rect(int(u.X), int(u.Y), int(u.X)+int(u.Width), int(u.Y)+int(u.Height))
 			if r.Canon().Overlaps(unitRect) {
@@ -108,7 +111,7 @@ func (g *Game) Update() error {
 				u.Selected = false
 			}
 		}
-	}))
+	}
 
 	// Handle right mouse button click to move selected units
 	if ebiten.IsMouseButtonPressed(ebiten.MouseButtonRight) && ebiten.IsFocused() {
