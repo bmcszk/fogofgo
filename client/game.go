@@ -6,6 +6,7 @@ import (
 	"math"
 
 	"github.com/bmcszk/gptrts/pkg/convert"
+	"github.com/bmcszk/gptrts/pkg/game"
 	"github.com/hajimehoshi/ebiten/v2"
 	"github.com/hajimehoshi/ebiten/v2/ebitenutil"
 )
@@ -17,6 +18,7 @@ const (
 )
 
 type Game struct {
+	game.Game
 	Map              *Map
 	Units            []*Unit
 	cameraX, cameraY int
@@ -27,11 +29,15 @@ func (g *Game) Init() {
 	// Initialize the map tiles
 	g.Map = NewMap()
 	unit1 := &Unit{
-		X: 3, Y: 3, Color: color.RGBA{255, 0, 0, 255}, Width: 32, Height: 32,
+		Unit: game.Unit{
+			X: 3, Y: 3, Color: color.RGBA{255, 0, 0, 255}, Width: 32, Height: 32,
+		},
 	}
 
 	unit2 := &Unit{
-		X: 20, Y: 10, Color: color.RGBA{0, 0, 255, 255}, Width: 32, Height: 32,
+		Unit: game.Unit{
+			X: 20, Y: 10, Color: color.RGBA{0, 0, 255, 255}, Width: 32, Height: 32,
+		},
 	}
 
 	g.Units = append(g.Units, unit1, unit2)

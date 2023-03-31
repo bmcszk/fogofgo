@@ -1,12 +1,10 @@
-package main
+package game
 
 import (
 	"image/color"
 	"math"
 
 	"github.com/bmcszk/gptrts/pkg/convert"
-	"github.com/hajimehoshi/ebiten/v2"
-	"github.com/hajimehoshi/ebiten/v2/ebitenutil"
 )
 
 const (
@@ -28,6 +26,7 @@ func (u *Unit) MoveTo(x, y int) {
 	u.TargetY = convert.ToPointer(float64(y))
 }
 
+
 func (u *Unit) Update() error {
 	if u.TargetX == nil || u.TargetY == nil {
 		return nil
@@ -47,16 +46,4 @@ func (u *Unit) Update() error {
 	u.Y += u.VelocityY
 
 	return nil
-}
-
-func (u *Unit) Draw(screen *ebiten.Image, cameraX, cameraY int) {
-	x := u.X - float64(cameraX)
-	y := u.Y - float64(cameraY)
-
-	if u.Selected {
-		col := color.RGBA{0, 255, 0, 255}
-		ebitenutil.DrawRect(screen, x-selectedBorder, y-selectedBorder, u.Width+(selectedBorder*2), u.Height+(selectedBorder*2), col)
-	}
-
-	ebitenutil.DrawRect(screen, x, y, u.Width, u.Height, u.Color)
 }
