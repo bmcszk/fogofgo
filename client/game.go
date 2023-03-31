@@ -25,15 +25,29 @@ type Game struct {
 	selectionBox     *image.Rectangle
 }
 
+func NewGame() *Game {
+	return &Game{
+		Game: game.NewGame(),
+	}
+}
+
 func (g *Game) Init() {
 	// Initialize the map tiles
-	g.Map = NewMap()
+	g.SetMap(NewMap())
 
-	unit1 := NewUnit(game.NewPF(3, 3), color.RGBA{255, 0, 0, 255}, 32, 32)
+	g.AddUnit(NewUnit(game.NewPF(3, 3), color.RGBA{255, 0, 0, 255}, 32, 32))
 
-	unit2 := NewUnit(game.NewPF(20, 10), color.RGBA{0, 0, 255, 255}, 32, 32)
+	g.AddUnit(NewUnit(game.NewPF(20, 10), color.RGBA{0, 0, 255, 255}, 32, 32))
+}
 
-	g.Units = append(g.Units, unit1, unit2)
+func (g *Game) AddUnit(unit *Unit) {
+	g.Game.Units = append(g.Game.Units, unit.Unit)
+	g.Units = append(g.Units, unit)
+}
+
+func (g *Game) SetMap(m *Map) {
+	g.Game.Map = m.Map
+	g.Map = m
 }
 
 func (g *Game) Layout(outsideWidth, outsideHeight int) (screenWidth, screenHeight int) {
@@ -105,7 +119,7 @@ func (g *Game) Update() error {
 		for _, u := range g.Units {
 			if r.Canon().Overlaps(u.GetRect()) {
 				u.Selected = true
-			} else {
+			} else if !ebiten.IsKeyPressed(ebiten.KeyShift) {
 				u.Selected = false
 			}
 		}

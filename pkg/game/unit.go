@@ -48,7 +48,7 @@ func (u *Unit) Update() error {
 	dx, dy := float64(u.Target.X-u.Position.X), float64(u.Target.Y-u.Position.Y)
 	dist := math.Sqrt(dx*dx + dy*dy)
 
-	if dist == 0 {
+	if dist < 1 {
 		u.Velocity = NewPF(0, 0)
 		u.Target = nil
 	} else {
