@@ -11,16 +11,16 @@ const (
 )
 
 type Map struct {
-	game.Map
+	*game.Map
 }
 
 func NewMap() *Map {
 	return &Map{
-		Map: *game.NewMap(),
+		Map: game.NewMap(),
 	}
 }
 
-func (m *Map) Draw(screen *ebiten.Image, cameraX, cameraY int) {
+func (m Map) Draw(screen *ebiten.Image, cameraX, cameraY int) {
 	for y := range m.Tiles {
 		for x, tile := range m.Tiles[y] {
 			var img *ebiten.Image

@@ -18,7 +18,7 @@ const (
 )
 
 type Game struct {
-	game.Game
+	*game.Game
 	Map              *Map
 	Units            []*Unit
 	cameraX, cameraY int
@@ -28,17 +28,10 @@ type Game struct {
 func (g *Game) Init() {
 	// Initialize the map tiles
 	g.Map = NewMap()
-	unit1 := &Unit{
-		Unit: game.Unit{
-			X: 3, Y: 3, Color: color.RGBA{255, 0, 0, 255}, Width: 32, Height: 32,
-		},
-	}
 
-	unit2 := &Unit{
-		Unit: game.Unit{
-			X: 20, Y: 10, Color: color.RGBA{0, 0, 255, 255}, Width: 32, Height: 32,
-		},
-	}
+	unit1 := NewUnit(game.NewPF(3, 3), color.RGBA{255, 0, 0, 255}, 32, 32)
+
+	unit2 := NewUnit(game.NewPF(20, 10), color.RGBA{0, 0, 255, 255}, 32, 32)
 
 	g.Units = append(g.Units, unit1, unit2)
 }
@@ -110,8 +103,7 @@ func (g *Game) Update() error {
 	if g.selectionBox != nil {
 		r := *g.selectionBox
 		for _, u := range g.Units {
-			unitRect := image.Rect(int(u.X), int(u.Y), int(u.X)+int(u.Width), int(u.Y)+int(u.Height))
-			if r.Canon().Overlaps(unitRect) {
+			if r.Canon().Overlaps(u.GetRect()) {
 				u.Selected = true
 			} else {
 				u.Selected = false
