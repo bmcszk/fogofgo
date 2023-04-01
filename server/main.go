@@ -4,21 +4,28 @@ import (
 	"log"
 	"net/http"
 
-	"github.com/bmcszk/gptrts/pkg/api"
+	"github.com/bmcszk/gptrts/pkg/game"
 	"github.com/gorilla/websocket"
 )
 
-var clients = make(map[*websocket.Conn]bool) // connected clients
-var broadcast = make(chan any)            // broadcast channel
-
 var upgrader = websocket.Upgrader{}
 
-func main() {
-	// Configure websocket route
-	http.HandleFunc("/ws", handleConnections)
+type Server struct {
+	clients map[*websocket.Conn]bool
+	game *game.Game
+}
 
-	// Start listening for incoming chat messages
-	go handleMessages()
+func NewServer(g *game.Game) *Server {
+	return &Server{
+		clients: make(map[*websocket.Conn]bool), // connected clients,
+		game: g,
+	}
+}
+
+func main() {
+	server := NewServer(game.NewGame())
+	// Configure websocket route
+	http.HandleFunc("/ws", server.handleConnections)
 
 	// Start the server on localhost port 8000 and log any errors
 	log.Println("http server started on :8000")
@@ -28,7 +35,7 @@ func main() {
 	}
 }
 
-func handleConnections(w http.ResponseWriter, r *http.Request) {
+func (s *Server) handleConnections(w http.ResponseWriter, r *http.Request) {
 	// Upgrade initial GET request to a websocket
 	ws, err := upgrader.Upgrade(w, r, nil)
 	if err != nil {
@@ -38,34 +45,23 @@ func handleConnections(w http.ResponseWriter, r *http.Request) {
 	defer ws.Close()
 
 	// Register our new client
-	clients[ws] = true
+	s.clients[ws] = true
 
 	for {
-		var msg api.Message
+		var unit game.Unit
 		// Read in a new message as JSON and map it to a Message object
-		err := ws.ReadJSON(&msg)
+		err := ws.ReadJSON(&unit)
 		if err != nil {
 			log.Printf("error: %v", err)
-			delete(clients, ws)
+			delete(s.clients, ws)
 			break
 		}
-		// Send the new message to the broadcast channel
-		broadcast <- msg
+		s.handleUnit(unit)
 	}
 }
 
-func handleMessages() {
-	for {
-		// Grab the next message from the broadcast channel
-		msg := <-broadcast
-		// Send it out to every client that is currently connected
-		for client := range clients {
-			err := client.WriteJSON(msg)
-			if err != nil {
-				log.Printf("error: %v", err)
-				client.Close()
-				delete(clients, client)
-			}
-		}
-	}
+func (s *Server) handleUnit(unit game.Unit) {
+	log.Printf("Unit: %+v\n", unit)
+	s.game.Units[unit.Id] = &unit
 }
+

@@ -23,11 +23,13 @@ type Game struct {
 	Units            []*Unit
 	cameraX, cameraY int
 	selectionBox     *image.Rectangle
+	UnitEvents 		 chan game.Unit
 }
 
 func NewGame() *Game {
 	return &Game{
 		Game: game.NewGame(),
+		UnitEvents: make(chan game.Unit, 10),
 	}
 }
 
@@ -35,14 +37,19 @@ func (g *Game) Init() {
 	// Initialize the map tiles
 	g.SetMap(NewMap())
 
-	g.AddUnit(NewUnit(game.NewPF(3, 3), color.RGBA{255, 0, 0, 255}, 32, 32))
+	e := func(u game.Unit) {
+		g.UnitEvents <- u
+	}
 
-	g.AddUnit(NewUnit(game.NewPF(20, 10), color.RGBA{0, 0, 255, 255}, 32, 32))
+	g.AddUnit(NewUnit(game.NewPF(0, 0), color.RGBA{255, 0, 0, 255}, 32, 32, e))
+
+	g.AddUnit(NewUnit(game.NewPF(0, 1), color.RGBA{0, 0, 255, 255}, 32, 32, e))
 }
 
 func (g *Game) AddUnit(unit *Unit) {
-	g.Game.Units = append(g.Game.Units, unit.Unit)
+	g.Game.Units[unit.Id] = unit.Unit
 	g.Units = append(g.Units, unit)
+	unit.Event(*unit.Unit)
 }
 
 func (g *Game) SetMap(m *Map) {
@@ -129,9 +136,10 @@ func (g *Game) Update() error {
 	if ebiten.IsMouseButtonPressed(ebiten.MouseButtonRight) && ebiten.IsFocused() {
 		mx, my := ebiten.CursorPosition()
 		worldX, worldY := g.screenToWorld(mx, my)
+		tileX, tileY := worldX/tileSize, worldY/tileSize
 		for _, u := range g.Units {
 			if u.Selected {
-				u.MoveTo(worldX, worldY)
+				u.MoveTo(tileX, tileY)
 			}
 		}
 	}

@@ -1,6 +1,7 @@
 package main
 
 import (
+	"image"
 	"image/color"
 
 	"github.com/bmcszk/gptrts/pkg/game"
@@ -14,17 +15,30 @@ const (
 
 type Unit struct {
 	*game.Unit
+	Color    color.Color
+	ScreenPosition game.PF
 }
 
-func NewUnit(position game.PF, color color.Color, width, height int) *Unit {
+func NewUnit(position game.PF, color color.Color, width, height int, event func(game.Unit)) *Unit {
 	return &Unit{
-		Unit: game.NewUnit(position, color, width, height),
+		Unit: game.NewUnit(position, width, height, event),
+		Color: color,
+		ScreenPosition: position.Mul(tileSize),
 	}
 }
 
-func (u Unit) Draw(screen *ebiten.Image, cameraX, cameraY int) {
-	x := u.Position.X - float64(cameraX)
-	y := u.Position.Y - float64(cameraY)
+func (u *Unit) Update() error {
+	if err := u.Unit.Update(); err != nil {
+		return err
+	}
+	u.ScreenPosition = u.Position.Mul(tileSize)
+	return nil
+}
+
+func (u *Unit) Draw(screen *ebiten.Image, cameraX, cameraY int) {
+	u.ScreenPosition = u.Position.Mul(tileSize)
+	x := u.ScreenPosition.X - float64(cameraX)
+	y := u.ScreenPosition.Y - float64(cameraY)
 
 	if u.Selected {
 		col := color.RGBA{0, 255, 0, 255}
@@ -32,4 +46,11 @@ func (u Unit) Draw(screen *ebiten.Image, cameraX, cameraY int) {
 	}
 
 	ebitenutil.DrawRect(screen, x, y, u.Size.X, u.Size.Y, u.Color)
+}
+
+func (u *Unit) GetRect() image.Rectangle {
+	return image.Rectangle{
+		Min: u.ScreenPosition.ImagePoint(),
+		Max: u.ScreenPosition.Add(u.Size).ImagePoint(),
+	}
 }

@@ -5,11 +5,6 @@ import (
 	"github.com/hajimehoshi/ebiten/v2"
 )
 
-const (
-	MapWidth  = 20
-	MapHeight = 20
-)
-
 type Map struct {
 	*game.Map
 }

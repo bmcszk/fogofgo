@@ -4,7 +4,6 @@ import (
 	"log"
 	"net/url"
 
-	"github.com/bmcszk/gptrts/pkg/api"
 	"github.com/gorilla/websocket"
 	"github.com/hajimehoshi/ebiten/v2"
 	"github.com/hajimehoshi/ebiten/v2/ebitenutil"
@@ -35,6 +34,9 @@ func init() {
 }
 
 func main() {
+	g := NewGame()
+	g.Init()
+
 	u := url.URL{Scheme: "ws", Host: "localhost:8000", Path: "/ws"}
 	log.Printf("connecting to %s", u.String())
 
@@ -44,14 +46,13 @@ func main() {
 	}
 	defer c.Close()
 
-	msg := api.BasicMessage{
-		Type: "basic",
-		Payload: "Czy ty żyjesz?1",
-	}
-
-	if err := c.WriteJSON(msg); err != nil {
-		log.Println("write:", err)
-	}
+	go func() {
+		for unit := range g.UnitEvents {
+			if err := c.WriteJSON(unit); err != nil {
+				log.Println("write:", err)
+			}
+		}
+	}()
 
 	// Read messages from the server
 	go func() {
@@ -68,10 +69,6 @@ func main() {
 	ebiten.SetWindowSize(screenWidth, screenHeight)
 	ebiten.SetWindowResizingMode(ebiten.WindowResizingModeEnabled)
 	ebiten.SetWindowTitle("RTS Game")
-
-	g := NewGame()
-	g.Init()
-
 
 	if err := ebiten.RunGame(g); err != nil {
 		log.Fatal(err)

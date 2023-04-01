@@ -4,6 +4,8 @@ go 1.20
 
 require github.com/hajimehoshi/ebiten/v2 v2.4.18
 
+require github.com/google/uuid v1.3.0
+
 require (
 	github.com/ebitengine/purego v0.0.0-20220905075623-aeed57cda744 // indirect
 	github.com/go-gl/glfw/v3.3/glfw v0.0.0-20220806181222-55e207c401ad // indirect

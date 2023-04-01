@@ -1,61 +1,74 @@
 package game
 
 import (
-	"image"
-	"image/color"
 	"math"
 
-	"github.com/bmcszk/gptrts/pkg/convert"
+	"github.com/google/uuid"
 )
 
 const (
-	UnitSpeed = 1
+	UnitSpeed = 0.1
 )
 
 type Unit struct {
-	Color    color.Color
+	Id uuid.UUID
 	Position PF
-	Target   *PF // target position for movement
 	Selected bool
 	Size     PF
 	Velocity PF
+	Path []PF
+	Step int
+	Event func(Unit) `json:"-"`
 }
 
-func NewUnit(position PF, color color.Color, width, height int) *Unit {
+func NewUnit(position PF, width, height int, event func(Unit)) *Unit {
 	return &Unit{
+		Id: uuid.New(),
 		Position: position,
-		Color:    color,
 		Size:     NewPF(float64(width), float64(height)),
+		Event: event,
 	}
 }
 
 func (u *Unit) MoveTo(x, y int) {
-	u.Target = convert.ToPointer(NewPF(float64(x), float64(y)))
+	target := NewPF(float64(x), float64(y))
+	if len(u.Path) > 0 && target == u.Path[len(u.Path) - 1] {
+		return
+	}
+	path := []PF{u.Position}
+	path = plan(path, target)
+	u.Path = path
+	u.Step = 0
 }
 
-func (u *Unit) GetRect() image.Rectangle {
-	return image.Rectangle{
-		Min: u.Position.ImagePoint(),
-		Max: u.Position.Add(u.Size).ImagePoint(),
-	}
+func plan(path []PF, target PF) []PF {
+	prevStep := path[len(path)-1]
+	if prevStep == target {
+		return path
+	} 
+	nextStep := prevStep.Step(target)
+	path = append(path, nextStep)
+	return plan(path, target)
 }
 
 func (u *Unit) Update() error {
-	if u.Target == nil {
+	if len(u.Path) <= u.Step {
 		return nil
 	}
 	// Move the unit towards the target position
-	dx, dy := float64(u.Target.X-u.Position.X), float64(u.Target.Y-u.Position.Y)
+	dx, dy := u.Path[u.Step].X-u.Position.X, u.Path[u.Step].Y-u.Position.Y
 	dist := math.Sqrt(dx*dx + dy*dy)
 
-	if dist < 1 {
+	if dist < 0.1 {
 		u.Velocity = NewPF(0, 0)
-		u.Target = nil
+		u.Position = u.Path[u.Step]
+		u.Step = u.Step + 1
+		u.Event(*u)
 	} else {
 		dx, dy = dx/dist, dy/dist
 		u.Velocity = NewPF(dx*UnitSpeed, dy*UnitSpeed)
+		u.Position = u.Position.Add(u.Velocity)
 	}
-	u.Position = u.Position.Add(u.Velocity)
 
 	return nil
 }
