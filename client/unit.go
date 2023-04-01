@@ -15,14 +15,14 @@ const (
 
 type Unit struct {
 	*game.Unit
-	Color    color.Color
+	Color          color.Color
 	ScreenPosition game.PF
 }
 
 func NewUnit(position game.PF, color color.Color, width, height int, event func(game.Unit)) *Unit {
 	return &Unit{
-		Unit: game.NewUnit(position, width, height, event),
-		Color: color,
+		Unit:           game.NewUnit(position, width, height, event),
+		Color:          color,
 		ScreenPosition: position.Mul(tileSize),
 	}
 }

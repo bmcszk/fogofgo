@@ -23,12 +23,12 @@ type Game struct {
 	Units            []*Unit
 	cameraX, cameraY int
 	selectionBox     *image.Rectangle
-	UnitEvents 		 chan game.Unit
+	UnitEvents       chan game.Unit
 }
 
 func NewGame() *Game {
 	return &Game{
-		Game: game.NewGame(),
+		Game:       game.NewGame(),
 		UnitEvents: make(chan game.Unit, 10),
 	}
 }
@@ -46,10 +46,13 @@ func (g *Game) Init() {
 	g.AddUnit(NewUnit(game.NewPF(0, 1), color.RGBA{0, 0, 255, 255}, 32, 32, e))
 }
 
-func (g *Game) AddUnit(unit *Unit) {
-	g.Game.Units[unit.Id] = unit.Unit
+func (g *Game) AddUnit(unit *Unit) error {
+	if err := g.Game.AddUnit(unit.Unit); err != nil {
+		return err
+	}
 	g.Units = append(g.Units, unit)
 	unit.Event(*unit.Unit)
+	return nil
 }
 
 func (g *Game) SetMap(m *Map) {

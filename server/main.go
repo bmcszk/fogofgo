@@ -12,13 +12,13 @@ var upgrader = websocket.Upgrader{}
 
 type Server struct {
 	clients map[*websocket.Conn]bool
-	game *game.Game
+	game    *game.Game
 }
 
 func NewServer(g *game.Game) *Server {
 	return &Server{
 		clients: make(map[*websocket.Conn]bool), // connected clients,
-		game: g,
+		game:    g,
 	}
 }
 
@@ -56,12 +56,27 @@ func (s *Server) handleConnections(w http.ResponseWriter, r *http.Request) {
 			delete(s.clients, ws)
 			break
 		}
-		s.handleUnit(unit)
+		if err := s.handleUnit(ws, unit); err != nil {
+			log.Printf("handleUnit: %v", err)
+			delete(s.clients, ws)
+			break
+		}
 	}
 }
 
-func (s *Server) handleUnit(unit game.Unit) {
+func (s *Server) handleUnit(ws *websocket.Conn, unit game.Unit) error {
 	log.Printf("Unit: %+v\n", unit)
-	s.game.Units[unit.Id] = &unit
-}
 
+	err := s.game.AddUnit(&unit)
+	if err != nil && err.Error() == "position" {
+		return err
+	}
+	if err != nil && err.Error() == "next step" {
+		unit.Step = unit.Step - 1
+		if err := ws.WriteJSON(unit); err != nil {
+			return err
+		}
+	}
+
+	return nil
+}

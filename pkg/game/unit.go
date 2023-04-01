@@ -11,28 +11,28 @@ const (
 )
 
 type Unit struct {
-	Id uuid.UUID
+	Id       uuid.UUID
 	Position PF
 	Selected bool
 	Size     PF
-	Velocity PF
-	Path []PF
-	Step int
-	Event func(Unit) `json:"-"`
+	Velocity PF `json:"-"`
+	Path     []PF
+	Step     int
+	Event    func(Unit) `json:"-"`
 }
 
 func NewUnit(position PF, width, height int, event func(Unit)) *Unit {
 	return &Unit{
-		Id: uuid.New(),
+		Id:       uuid.New(),
 		Position: position,
 		Size:     NewPF(float64(width), float64(height)),
-		Event: event,
+		Event:    event,
 	}
 }
 
 func (u *Unit) MoveTo(x, y int) {
 	target := NewPF(float64(x), float64(y))
-	if len(u.Path) > 0 && target == u.Path[len(u.Path) - 1] {
+	if len(u.Path) > 0 && target == u.Path[len(u.Path)-1] {
 		return
 	}
 	path := []PF{u.Position}
@@ -41,11 +41,17 @@ func (u *Unit) MoveTo(x, y int) {
 	u.Step = 0
 }
 
+func (u *Unit) Set(unit Unit) {
+	u.Step = unit.Step
+	u.Position = unit.Position
+	u.Path = unit.Path
+}
+
 func plan(path []PF, target PF) []PF {
 	prevStep := path[len(path)-1]
 	if prevStep == target {
 		return path
-	} 
+	}
 	nextStep := prevStep.Step(target)
 	path = append(path, nextStep)
 	return plan(path, target)

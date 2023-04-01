@@ -4,6 +4,7 @@ import (
 	"log"
 	"net/url"
 
+	"github.com/bmcszk/gptrts/pkg/game"
 	"github.com/gorilla/websocket"
 	"github.com/hajimehoshi/ebiten/v2"
 	"github.com/hajimehoshi/ebiten/v2/ebitenutil"
@@ -57,12 +58,14 @@ func main() {
 	// Read messages from the server
 	go func() {
 		for {
-			_, message, err := c.ReadMessage()
+			var unit game.Unit
+			err := c.ReadJSON(&unit)
 			if err != nil {
 				log.Println("read:", err)
 				return
 			}
-			log.Printf("received: %s", message)
+			log.Println("unit:", unit.Id)
+			g.Game.Units[unit.Id].Set(unit)
 		}
 	}()
 

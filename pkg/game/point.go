@@ -31,17 +31,17 @@ func (p PF) Mul(a float64) PF {
 func (p PF) Step(target PF) PF {
 	s := p.Round()
 	target = target.Round()
-	dx, dy := target.X - s.X, target.Y - s.Y
+	dx, dy := target.X-s.X, target.Y-s.Y
 	if dx > 0 {
 		dx = 1
 	} else if dx < 0 {
 		dx = -1
-	} 
+	}
 	if dy > 0 {
 		dy = 1
 	} else if dy < 0 {
 		dy = -1
-	} 
+	}
 	return NewPF(s.X+dx, s.Y+dy)
 }
 
