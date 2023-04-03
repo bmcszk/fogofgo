@@ -1,6 +1,7 @@
 package game
 
 import (
+	"image/color"
 	"math"
 
 	"github.com/google/uuid"
@@ -12,21 +13,22 @@ const (
 
 type Unit struct {
 	Id       uuid.UUID
+	Color          color.RGBA
 	Position PF
 	Selected bool
 	Size     PF
 	Velocity PF `json:"-"`
 	Path     []PF
 	Step     int
-	Event    func(Unit) `json:"-"`
+	dispatch    func(any)error `json:"-"`
 }
 
-func NewUnit(position PF, width, height int, event func(Unit)) *Unit {
+func NewUnit(c color.RGBA, position PF, width, height int) *Unit {
 	return &Unit{
 		Id:       uuid.New(),
+		Color: c,
 		Position: position,
 		Size:     NewPF(float64(width), float64(height)),
-		Event:    event,
 	}
 }
 
@@ -69,7 +71,9 @@ func (u *Unit) Update() error {
 		u.Velocity = NewPF(0, 0)
 		u.Position = u.Path[u.Step]
 		u.Step = u.Step + 1
-		u.Event(*u)
+		if err := u.dispatchMove(); err != nil {
+			return err
+		}
 	} else {
 		dx, dy = dx/dist, dy/dist
 		u.Velocity = NewPF(dx*UnitSpeed, dy*UnitSpeed)
@@ -77,4 +81,15 @@ func (u *Unit) Update() error {
 	}
 
 	return nil
+}
+
+func (u *Unit) dispatchMove() error {
+	moveAction := MoveUnitAction{
+		Type: MoveUnitActionType,
+		UnitId: u.Id,
+		Position: u.Position,
+		Path: u.Path,
+		Step: u.Step,
+	}
+	return u.dispatch(moveAction)
 }

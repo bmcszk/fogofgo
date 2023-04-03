@@ -3,10 +3,13 @@ package main
 import (
 	"image"
 	"image/color"
+	"log"
 	"math"
+	"sync"
 
 	"github.com/bmcszk/gptrts/pkg/convert"
 	"github.com/bmcszk/gptrts/pkg/game"
+	"github.com/google/uuid"
 	"github.com/hajimehoshi/ebiten/v2"
 	"github.com/hajimehoshi/ebiten/v2/ebitenutil"
 )
@@ -20,44 +23,62 @@ const (
 type Game struct {
 	*game.Game
 	Map              *Map
-	Units            []*Unit
+	Units   map[uuid.UUID]*Unit
 	cameraX, cameraY int
 	selectionBox     *image.Rectangle
-	UnitEvents       chan game.Unit
+	gameMux *sync.Mutex
 }
 
-func NewGame() *Game {
+func NewGame(dispatch func(any) error) *Game {
 	return &Game{
-		Game:       game.NewGame(),
-		UnitEvents: make(chan game.Unit, 10),
+		Game:       game.NewGame(dispatch),
+		Map: NewMap(),
+		Units:   make(map[uuid.UUID]*Unit),
+		gameMux: &sync.Mutex{},
 	}
 }
 
-func (g *Game) Init() {
-	// Initialize the map tiles
-	g.SetMap(NewMap())
-
-	e := func(u game.Unit) {
-		g.UnitEvents <- u
-	}
-
-	g.AddUnit(NewUnit(game.NewPF(0, 0), color.RGBA{255, 0, 0, 255}, 32, 32, e))
-
-	g.AddUnit(NewUnit(game.NewPF(0, 1), color.RGBA{0, 0, 255, 255}, 32, 32, e))
-}
-
-func (g *Game) AddUnit(unit *Unit) error {
-	if err := g.Game.AddUnit(unit.Unit); err != nil {
+func (g *Game) HandleAction(action any) error {
+	g.gameMux.Lock()
+	defer g.gameMux.Unlock()
+	if err := g.Game.HandleAction(action); err != nil {
 		return err
 	}
-	g.Units = append(g.Units, unit)
-	unit.Event(*unit.Unit)
+	return g.handleAction(action) 
+}
+
+func (g *Game) handleAction(action any) error {
+	log.Printf("game handle %+v", action)
+	switch a := action.(type) {
+	case game.AddUnitAction:
+		if err := g.handleAddUnitAction(a); err != nil {
+			return err
+		}
+	case game.StartClientResponseAction:
+		if err := g.handleStartClientResponseAction(a); err != nil {
+			return err
+		}
+	}
+
 	return nil
 }
 
-func (g *Game) SetMap(m *Map) {
-	g.Game.Map = m.Map
-	g.Map = m
+func (g *Game) handleAddUnitAction(action game.AddUnitAction) error {
+	g.Units[action.Unit.Id] = NewUnit(g.Game.Units[action.Unit.Id])
+	return nil
+}
+
+func (g *Game) handleStartClientResponseAction(action game.StartClientResponseAction) error {
+	for _, actionJson := range action.Actions {
+		a, err := game.UnmarshalAction([]byte(actionJson))
+		if err != nil {
+			return err
+		}
+		if err := g.handleAction(a); err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
 func (g *Game) Layout(outsideWidth, outsideHeight int) (screenWidth, screenHeight int) {

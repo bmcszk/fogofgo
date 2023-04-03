@@ -35,39 +35,40 @@ func init() {
 }
 
 func main() {
-	g := NewGame()
-	g.Init()
-
 	u := url.URL{Scheme: "ws", Host: "localhost:8000", Path: "/ws"}
 	log.Printf("connecting to %s", u.String())
 
-	c, _, err := websocket.DefaultDialer.Dial(u.String(), nil)
+	ws, _, err := websocket.DefaultDialer.Dial(u.String(), nil)
 	if err != nil {
 		log.Fatal("dial:", err)
 	}
-	defer c.Close()
+	defer ws.Close()
 
-	go func() {
-		for unit := range g.UnitEvents {
-			if err := c.WriteJSON(unit); err != nil {
-				log.Println("write:", err)
-			}
-		}
-	}()
+	dispatchFn := dispatch(ws)
+	g := NewGame(dispatchFn)
 
 	// Read messages from the server
 	go func() {
 		for {
-			var unit game.Unit
-			err := c.ReadJSON(&unit)
+			_, bytes, err := ws.ReadMessage()
 			if err != nil {
-				log.Println("read:", err)
-				return
+				log.Fatal(err)
 			}
-			log.Println("unit:", unit.Id)
-			g.Game.Units[unit.Id].Set(unit)
+			action, err := game.UnmarshalAction(bytes)
+			if err != nil {
+				log.Fatal(err)
+			}
+			if err := g.HandleAction(action); err != nil {
+				log.Println(err)
+			}
 		}
 	}()
+
+	if err := dispatchFn(game.StartClientRequestAction{
+		Type: game.StartClientRequestActionType,
+	}); err != nil {
+		log.Fatal(err)
+	}
 
 	ebiten.SetWindowSize(screenWidth, screenHeight)
 	ebiten.SetWindowResizingMode(ebiten.WindowResizingModeEnabled)
@@ -75,5 +76,15 @@ func main() {
 
 	if err := ebiten.RunGame(g); err != nil {
 		log.Fatal(err)
+	}
+}
+
+func dispatch(c *websocket.Conn) func(any) error {
+	return func(action any) error {
+		log.Printf("dispatch %+v", action)
+		if err := c.WriteJSON(action); err != nil {
+			log.Println("write:", err)
+		}
+		return nil
 	}
 }

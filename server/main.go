@@ -1,29 +1,47 @@
 package main
 
 import (
+	"image/color"
 	"log"
 	"net/http"
 
 	"github.com/bmcszk/gptrts/pkg/game"
 	"github.com/gorilla/websocket"
+	"golang.org/x/exp/slices"
 )
 
 var upgrader = websocket.Upgrader{}
 
 type Server struct {
-	clients map[*websocket.Conn]bool
 	game    *game.Game
+	clients map[*websocket.Conn]bool
+	dispatch func(any)error
 }
 
-func NewServer(g *game.Game) *Server {
+func NewServer(g *game.Game, clients map[*websocket.Conn]bool, dispatchFn func(any)error) *Server {
 	return &Server{
-		clients: make(map[*websocket.Conn]bool), // connected clients,
 		game:    g,
+		clients: clients, // connected clients,
+		dispatch: dispatchFn,
 	}
 }
 
 func main() {
-	server := NewServer(game.NewGame())
+	clients := make(map[*websocket.Conn]bool)
+	dispatchFn := dispatch(clients)
+	g := game.NewGame(dispatchFn)
+
+	g.HandleAction(game.AddUnitAction{
+		Type: game.AddUnitActionType,
+		Unit: *game.NewUnit(color.RGBA{255, 0, 0, 255}, game.NewPF(0, 0), 32, 32),
+	})
+
+	g.HandleAction(game.AddUnitAction{
+		Type: game.AddUnitActionType,
+		Unit: *game.NewUnit(color.RGBA{0, 0, 255, 255}, game.NewPF(1, 0), 32, 32),
+	})
+
+	server := NewServer(g, clients, dispatchFn)
 	// Configure websocket route
 	http.HandleFunc("/ws", server.handleConnections)
 
@@ -48,35 +66,49 @@ func (s *Server) handleConnections(w http.ResponseWriter, r *http.Request) {
 	s.clients[ws] = true
 
 	for {
-		var unit game.Unit
-		// Read in a new message as JSON and map it to a Message object
-		err := ws.ReadJSON(&unit)
+		_, bytes, err := ws.ReadMessage()
 		if err != nil {
-			log.Printf("error: %v", err)
-			delete(s.clients, ws)
-			break
+			log.Fatal(err)
 		}
-		if err := s.handleUnit(ws, unit); err != nil {
-			log.Printf("handleUnit: %v", err)
-			delete(s.clients, ws)
-			break
+		action, err := game.UnmarshalAction(bytes)
+		if err != nil {
+			log.Fatal(err)
+		}
+		if err := s.game.HandleAction(action); err != nil {
+			log.Println(err)
+		}
+		if err := s.Broadcast(action); err != nil {
+			log.Println(err)
 		}
 	}
 }
 
-func (s *Server) handleUnit(ws *websocket.Conn, unit game.Unit) error {
-	log.Printf("Unit: %+v\n", unit)
-
-	err := s.game.AddUnit(&unit)
-	if err != nil && err.Error() == "position" {
-		return err
+func (s *Server) Broadcast(action any, excludes ...*websocket.Conn) error {
+	recipients := []*websocket.Conn{}
+	for c, connected := range s.clients {
+		if connected && !slices.Contains(excludes, c) {
+			recipients = append(recipients, c)
+		}
 	}
-	if err != nil && err.Error() == "next step" {
-		unit.Step = unit.Step - 1
-		if err := ws.WriteJSON(unit); err != nil {
+	for _, recipient := range recipients {
+		if err := recipient.WriteJSON(action); err != nil {
 			return err
 		}
 	}
-
 	return nil
+}
+
+
+func dispatch(clients map[*websocket.Conn]bool) func (any) error {
+	return func(action any) error {
+		log.Printf("dispatch %+v", action)
+		for c, connected := range clients {
+			if connected {
+				if err := c.WriteJSON(action); err != nil {
+					log.Println("write:", err)
+				}
+			}
+		}
+		return nil
+	}
 }

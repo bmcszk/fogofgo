@@ -48,3 +48,8 @@ func (p PF) Step(target PF) PF {
 func (p PF) Round() PF {
 	return NewPF(math.Round(p.X), math.Round(p.Y))
 }
+
+func (p PF) Ints() (int, int) {
+	p = p.Round()
+	return int(p.X), int(p.Y)
+}
