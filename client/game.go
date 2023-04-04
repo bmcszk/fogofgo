@@ -9,7 +9,6 @@ import (
 
 	"github.com/bmcszk/gptrts/pkg/convert"
 	"github.com/bmcszk/gptrts/pkg/game"
-	"github.com/google/uuid"
 	"github.com/hajimehoshi/ebiten/v2"
 	"github.com/hajimehoshi/ebiten/v2/ebitenutil"
 )
@@ -23,7 +22,7 @@ const (
 type Game struct {
 	*game.Game
 	Map              *Map
-	Units            map[uuid.UUID]*Unit
+	Units            map[game.UnitIdType]*Unit
 	cameraX, cameraY int
 	selectionBox     *image.Rectangle
 	gameMux          *sync.Mutex
@@ -33,7 +32,7 @@ func NewGame(dispatch func(any) error) *Game {
 	return &Game{
 		Game:    game.NewGame(dispatch),
 		Map:     NewMap(),
-		Units:   make(map[uuid.UUID]*Unit),
+		Units:   make(map[game.UnitIdType]*Unit),
 		gameMux: &sync.Mutex{},
 	}
 }

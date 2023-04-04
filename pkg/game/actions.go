@@ -3,8 +3,6 @@ package game
 import (
 	"encoding/json"
 	"errors"
-
-	"github.com/google/uuid"
 )
 
 type ActionType string
@@ -18,12 +16,13 @@ const (
 )
 
 type Action[T any] struct {
-	Type ActionType
+	Type    ActionType
 	Payload T
 }
 
 type StartClientRequestAction struct {
-	Type ActionType
+	Type    ActionType
+	Payload Player
 }
 
 type StartClientResponseAction struct {
@@ -32,22 +31,23 @@ type StartClientResponseAction struct {
 }
 
 type StartClientResponsePayload struct {
-	Map      Map
-	Units    map[uuid.UUID]Unit
+	Map     Map
+	Units   map[UnitIdType]Unit
+	Players map[PlayerIdType]Player
 }
 
 type AddUnitAction struct {
-	Type ActionType
+	Type    ActionType
 	Payload Unit
 }
 
 type MoveUnitAction struct {
-	Type     ActionType
+	Type    ActionType
 	Payload MoveUnitActionPayload
 }
 
 type MoveUnitActionPayload struct {
-	UnitId   uuid.UUID
+	UnitId   UnitIdType
 	Position PF
 	Path     []PF
 	Step     int
@@ -55,7 +55,7 @@ type MoveUnitActionPayload struct {
 
 type StopUnitAction struct {
 	Type   ActionType
-	UnitId uuid.UUID
+	UnitId UnitIdType
 }
 
 func CreateAction(actionType ActionType) (any, error) {

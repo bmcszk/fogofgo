@@ -10,7 +10,8 @@ import (
 
 type Game struct {
 	Map      *Map
-	Units    map[uuid.UUID]*Unit
+	Units    map[UnitIdType]*Unit
+	Players  map[PlayerIdType]*Player
 	gameMux  *sync.Mutex
 	dispatch func(any) error
 }
@@ -18,18 +19,10 @@ type Game struct {
 func NewGame(dispatch func(any) error) *Game {
 	g := &Game{
 		Map:     NewMap(),
-		Units:   make(map[uuid.UUID]*Unit),
+		Units:   make(map[UnitIdType]*Unit),
+		Players: make(map[PlayerIdType]*Player),
 		gameMux: &sync.Mutex{},
 	}
-	/* dispatch = func(a any) error {
-		if err := dispatch(a); err != nil {
-			return err
-		}
-		if err := g.HandleAction(a); err != nil {
-			return err
-		}
-		return nil
-	} */
 	g.dispatch = dispatch
 	return g
 }
@@ -81,14 +74,18 @@ func (g *Game) handleAddUnitAction(action AddUnitAction) error {
 
 func (g *Game) handleStartClientRequestAction(action StartClientRequestAction) error {
 	responsAction := StartClientResponseAction{
-		Type:    StartClientResponseActionType,
+		Type: StartClientResponseActionType,
 		Payload: StartClientResponsePayload{
-			Map: *g.Map,
-			Units: make(map[uuid.UUID]Unit),
+			Map:     *g.Map,
+			Units:   make(map[UnitIdType]Unit),
+			Players: make(map[PlayerIdType]Player),
 		},
 	}
 	for unitId, unit := range g.Units {
 		responsAction.Payload.Units[unitId] = *unit
+	}
+	for playerId, player := range g.Players {
+		responsAction.Payload.Players[playerId] = *player
 	}
 	return g.dispatch(responsAction)
 }
@@ -99,13 +96,17 @@ func (g *Game) handleStartClientResponseAction(action StartClientResponseAction)
 		g.Units[unitId] = &gUnit
 		gUnit.dispatch = g.dispatch
 	}
+	for playerId, player := range action.Payload.Players {
+		gPlayer := player
+		g.Players[playerId] = &gPlayer
+	}
 	return nil
 }
 
 func (g *Game) handleMoveUnitAction(action MoveUnitAction) error {
 	//clean position
 	for _, tile := range g.Map.GetTilesByUnitId(action.Payload.UnitId) {
-		tile.Unit = nil
+		tile.UnitId = UnitIdType(uuid.Nil)
 	}
 	unit := g.Units[action.Payload.UnitId]
 
@@ -126,15 +127,15 @@ func (g *Game) handleMoveUnitAction(action MoveUnitAction) error {
 			}); err != nil {
 				return err
 			}
-			/* 
-			Retry moving to target in 1s
-			go func(a MoveUnitAction) {
-				time.Sleep(1 * time.Second)
-				a.Step -= 1
-				if err := g.handleAction(a); err != nil {
-					log.Println(err)
-				}
-			}(action) */
+			/*
+				Retry moving to target in 1s
+				go func(a MoveUnitAction) {
+					time.Sleep(1 * time.Second)
+					a.Step -= 1
+					if err := g.handleAction(a); err != nil {
+						log.Println(err)
+					}
+				}(action) */
 		}
 	}
 	return nil

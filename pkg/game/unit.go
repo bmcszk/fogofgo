@@ -11,8 +11,11 @@ const (
 	UnitSpeed = 0.1
 )
 
+type UnitIdType = uuid.UUID
+
 type Unit struct {
-	Id       uuid.UUID
+	Id       UnitIdType
+	Owner    PlayerIdType
 	Color    color.RGBA
 	Position PF
 	Selected bool
@@ -85,7 +88,7 @@ func (u *Unit) Update() error {
 
 func (u *Unit) dispatchMove() error {
 	moveAction := MoveUnitAction{
-		Type:     MoveUnitActionType,
+		Type: MoveUnitActionType,
 		Payload: MoveUnitActionPayload{
 			UnitId:   u.Id,
 			Position: u.Position,

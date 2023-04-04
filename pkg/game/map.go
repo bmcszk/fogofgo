@@ -14,8 +14,8 @@ const (
 )
 
 type Tile struct {
-	Type TileType
-	Unit *Unit
+	Type   TileType
+	UnitId UnitIdType
 }
 
 const (
@@ -44,12 +44,12 @@ func NewMap() *Map {
 	return m
 }
 
-func (m *Map) GetTilesByUnitId(unitId uuid.UUID) []*Tile {
+func (m *Map) GetTilesByUnitId(unitId UnitIdType) []*Tile {
 	result := make([]*Tile, 0)
 	for x := 0; x < MapWidth; x++ {
 		for y := 0; y < MapHeight; y++ {
 			tile := m.Tiles[x][y]
-			if tile.Unit != nil && tile.Unit.Id == unitId {
+			if tile.UnitId == unitId {
 				result = append(result, tile)
 			}
 		}
@@ -68,11 +68,10 @@ func (m *Map) PlaceUnit(unit *Unit, positions ...PF) error {
 			return err
 		}
 		//set position
-		if tile.Unit != nil &&
-			tile.Unit.Id != unit.Id {
+		if tile.UnitId != uuid.Nil && tile.UnitId != unit.Id {
 			return errors.New("position")
 		}
-		tile.Unit = unit
+		tile.UnitId = unit.Id
 	}
 
 	return nil

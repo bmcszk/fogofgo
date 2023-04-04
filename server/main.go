@@ -13,12 +13,12 @@ import (
 var upgrader = websocket.Upgrader{}
 
 type Server struct {
-	game     *game.Game
+	game     *Game
 	clients  map[*websocket.Conn]bool
 	dispatch func(any) error
 }
 
-func NewServer(g *game.Game, clients map[*websocket.Conn]bool, dispatchFn func(any) error) *Server {
+func NewServer(g *Game, clients map[*websocket.Conn]bool, dispatchFn func(any) error) *Server {
 	return &Server{
 		game:     g,
 		clients:  clients, // connected clients,
@@ -29,17 +29,17 @@ func NewServer(g *game.Game, clients map[*websocket.Conn]bool, dispatchFn func(a
 func main() {
 	clients := make(map[*websocket.Conn]bool)
 	dispatchFn := dispatch(clients)
-	g := game.NewGame(dispatchFn)
+	g := NewGame(dispatchFn)
 
 	g.HandleAction(game.AddUnitAction{
-		Type: game.AddUnitActionType,
+		Type:    game.AddUnitActionType,
 		Payload: *game.NewUnit(color.RGBA{255, 0, 0, 255}, game.NewPF(0, 0), 32, 32),
-	})
+	}, nil)
 
 	g.HandleAction(game.AddUnitAction{
-		Type: game.AddUnitActionType,
+		Type:    game.AddUnitActionType,
 		Payload: *game.NewUnit(color.RGBA{0, 0, 255, 255}, game.NewPF(1, 0), 32, 32),
-	})
+	}, nil)
 
 	server := NewServer(g, clients, dispatchFn)
 	// Configure websocket route
@@ -74,7 +74,7 @@ func (s *Server) handleConnections(w http.ResponseWriter, r *http.Request) {
 		if err != nil {
 			log.Fatal(err)
 		}
-		if err := s.game.HandleAction(action); err != nil {
+		if err := s.game.HandleAction(action, ws); err != nil {
 			log.Println(err)
 		}
 		if err := s.Broadcast(action); err != nil {
