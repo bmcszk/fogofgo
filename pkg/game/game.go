@@ -1,7 +1,6 @@
 package game
 
 import (
-	"encoding/json"
 	"errors"
 	"log"
 	"sync"
@@ -13,7 +12,6 @@ type Game struct {
 	Map      *Map
 	Units    map[uuid.UUID]*Unit
 	gameMux  *sync.Mutex
-	actions  []any
 	dispatch func(any) error
 }
 
@@ -57,17 +55,14 @@ func (g *Game) handleAction(action any) error {
 		if err := g.handleAddUnitAction(a); err != nil {
 			return err
 		}
-		g.actions = append(g.actions, action)
 	case MoveUnitAction:
 		if err := g.handleMoveUnitAction(a); err != nil {
 			return err
 		}
-		g.actions = append(g.actions, action)
 	case StopUnitAction:
 		if err := g.handleStopUnitAction(a); err != nil {
 			return err
 		}
-		g.actions = append(g.actions, action)
 	default:
 		return errors.New("action not recognized")
 	}
@@ -85,30 +80,24 @@ func (g *Game) handleAddUnitAction(action AddUnitAction) error {
 }
 
 func (g *Game) handleStartClientRequestAction(action StartClientRequestAction) error {
-	actionJsons := []string{}
-	for _, a := range g.actions {
-		actionJson, err := json.Marshal(a)
-		if err != nil {
-			return err
-		}
-		actionJsons = append(actionJsons, string(actionJson))
-	}
-
 	responsAction := StartClientResponseAction{
 		Type:    StartClientResponseActionType,
-		Payload: actionJsons,
+		Payload: StartClientResponsePayload{
+			Map: *g.Map,
+			Units: make(map[uuid.UUID]Unit),
+		},
+	}
+	for unitId, unit := range g.Units {
+		responsAction.Payload.Units[unitId] = *unit
 	}
 	return g.dispatch(responsAction)
 }
 func (g *Game) handleStartClientResponseAction(action StartClientResponseAction) error {
-	for _, actionJson := range action.Payload {
-		a, err := UnmarshalAction([]byte(actionJson))
-		if err != nil {
-			return err
-		}
-		if err := g.handleAction(a); err != nil {
-			return err
-		}
+	g.Map = &action.Payload.Map
+	for unitId, unit := range action.Payload.Units {
+		gUnit := unit
+		g.Units[unitId] = &gUnit
+		gUnit.dispatch = g.dispatch
 	}
 	return nil
 }

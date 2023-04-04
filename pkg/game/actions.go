@@ -28,7 +28,12 @@ type StartClientRequestAction struct {
 
 type StartClientResponseAction struct {
 	Type    ActionType
-	Payload []string
+	Payload StartClientResponsePayload
+}
+
+type StartClientResponsePayload struct {
+	Map      Map
+	Units    map[uuid.UUID]Unit
 }
 
 type AddUnitAction struct {

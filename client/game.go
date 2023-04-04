@@ -69,14 +69,8 @@ func (g *Game) handleAddUnitAction(action game.AddUnitAction) error {
 }
 
 func (g *Game) handleStartClientResponseAction(action game.StartClientResponseAction) error {
-	for _, actionJson := range action.Payload {
-		a, err := game.UnmarshalAction([]byte(actionJson))
-		if err != nil {
-			return err
-		}
-		if err := g.handleAction(a); err != nil {
-			return err
-		}
+	for unitId := range action.Payload.Units {
+		g.Units[unitId] = NewUnit(g.Game.Units[unitId])
 	}
 	return nil
 }
