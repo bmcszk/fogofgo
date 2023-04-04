@@ -11,7 +11,11 @@ const (
 	UnitSpeed = 0.1
 )
 
-type UnitIdType = uuid.UUID
+var ZeroUnitId = UnitIdType{uuid.Nil}
+
+type UnitIdType struct {
+	uuid.UUID
+}
 
 type Unit struct {
 	Id       UnitIdType
@@ -28,11 +32,15 @@ type Unit struct {
 
 func NewUnit(c color.RGBA, position PF, width, height int) *Unit {
 	return &Unit{
-		Id:       uuid.New(),
+		Id:       NewUnitId(),
 		Color:    c,
 		Position: position,
 		Size:     NewPF(float64(width), float64(height)),
 	}
+}
+
+func NewUnitId() UnitIdType {
+	return UnitIdType{uuid.New()}
 }
 
 func (u *Unit) MoveTo(x, y int) {

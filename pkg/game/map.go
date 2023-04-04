@@ -2,8 +2,6 @@ package game
 
 import (
 	"errors"
-
-	"github.com/google/uuid"
 )
 
 type TileType int
@@ -68,7 +66,7 @@ func (m *Map) PlaceUnit(unit *Unit, positions ...PF) error {
 			return err
 		}
 		//set position
-		if tile.UnitId != uuid.Nil && tile.UnitId != unit.Id {
+		if tile.UnitId != ZeroUnitId && tile.UnitId != unit.Id {
 			return errors.New("position")
 		}
 		tile.UnitId = unit.Id

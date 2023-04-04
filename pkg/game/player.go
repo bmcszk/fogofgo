@@ -2,7 +2,9 @@ package game
 
 import "github.com/google/uuid"
 
-type PlayerIdType = uuid.UUID
+type PlayerIdType struct {
+	uuid.UUID
+}
 
 type Player struct {
 	Id   PlayerIdType
@@ -11,7 +13,11 @@ type Player struct {
 
 func NewPlayer(name string) *Player {
 	return &Player{
-		Id:   uuid.New(),
+		Id:   NewPlayerId(),
 		Name: name,
 	}
+}
+
+func NewPlayerId() PlayerIdType {
+	return PlayerIdType{uuid.New()}
 }

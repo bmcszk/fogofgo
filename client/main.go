@@ -5,7 +5,6 @@ import (
 	"net/url"
 
 	"github.com/bmcszk/gptrts/pkg/game"
-	"github.com/google/uuid"
 	"github.com/gorilla/websocket"
 	"github.com/hajimehoshi/ebiten/v2"
 	"github.com/hajimehoshi/ebiten/v2/ebitenutil"
@@ -68,7 +67,7 @@ func main() {
 	if err := dispatchFn(game.StartClientRequestAction{
 		Type: game.StartClientRequestActionType,
 		Payload: game.Player{
-			Id:   game.PlayerIdType(uuid.New()),
+			Id:   game.NewPlayerId(),
 			Name: "Kicia",
 		},
 	}); err != nil {

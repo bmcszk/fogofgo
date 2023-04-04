@@ -4,8 +4,6 @@ import (
 	"errors"
 	"log"
 	"sync"
-
-	"github.com/google/uuid"
 )
 
 type Game struct {
@@ -73,6 +71,8 @@ func (g *Game) handleAddUnitAction(action AddUnitAction) error {
 }
 
 func (g *Game) handleStartClientRequestAction(action StartClientRequestAction) error {
+	g.Players[action.Payload.Id] = &action.Payload
+
 	responsAction := StartClientResponseAction{
 		Type: StartClientResponseActionType,
 		Payload: StartClientResponsePayload{
@@ -89,6 +89,7 @@ func (g *Game) handleStartClientRequestAction(action StartClientRequestAction) e
 	}
 	return g.dispatch(responsAction)
 }
+
 func (g *Game) handleStartClientResponseAction(action StartClientResponseAction) error {
 	g.Map = &action.Payload.Map
 	for unitId, unit := range action.Payload.Units {
@@ -106,7 +107,7 @@ func (g *Game) handleStartClientResponseAction(action StartClientResponseAction)
 func (g *Game) handleMoveUnitAction(action MoveUnitAction) error {
 	//clean position
 	for _, tile := range g.Map.GetTilesByUnitId(action.Payload.UnitId) {
-		tile.UnitId = UnitIdType(uuid.Nil)
+		tile.UnitId = ZeroUnitId
 	}
 	unit := g.Units[action.Payload.UnitId]
 
