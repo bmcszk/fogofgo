@@ -17,8 +17,9 @@ const (
 	StopUnitActionType            ActionType = "StopUnitAction"
 )
 
-type Action struct {
+type Action[T any] struct {
 	Type ActionType
+	Payload T
 }
 
 type StartClientRequestAction struct {
@@ -27,16 +28,20 @@ type StartClientRequestAction struct {
 
 type StartClientResponseAction struct {
 	Type    ActionType
-	Actions []string
+	Payload []string
 }
 
 type AddUnitAction struct {
 	Type ActionType
-	Unit Unit
+	Payload Unit
 }
 
 type MoveUnitAction struct {
 	Type     ActionType
+	Payload MoveUnitActionPayload
+}
+
+type MoveUnitActionPayload struct {
 	UnitId   uuid.UUID
 	Position PF
 	Path     []PF
@@ -81,7 +86,7 @@ func CreateAction(actionType ActionType) (any, error) {
 }
 
 func UnmarshalAction(bytes []byte) (any, error) {
-	var msg Action
+	var msg Action[any]
 	if err := json.Unmarshal(bytes, &msg); err != nil {
 		return nil, err
 	}

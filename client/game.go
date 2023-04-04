@@ -64,12 +64,12 @@ func (g *Game) handleAction(action any) error {
 }
 
 func (g *Game) handleAddUnitAction(action game.AddUnitAction) error {
-	g.Units[action.Unit.Id] = NewUnit(g.Game.Units[action.Unit.Id])
+	g.Units[action.Payload.Id] = NewUnit(g.Game.Units[action.Payload.Id])
 	return nil
 }
 
 func (g *Game) handleStartClientResponseAction(action game.StartClientResponseAction) error {
-	for _, actionJson := range action.Actions {
+	for _, actionJson := range action.Payload {
 		a, err := game.UnmarshalAction([]byte(actionJson))
 		if err != nil {
 			return err

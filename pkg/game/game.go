@@ -75,9 +75,9 @@ func (g *Game) handleAction(action any) error {
 }
 
 func (g *Game) handleAddUnitAction(action AddUnitAction) error {
-	unit := &action.Unit
+	unit := &action.Payload
 	unit.dispatch = g.dispatch
-	g.Units[action.Unit.Id] = unit
+	g.Units[action.Payload.Id] = unit
 	if err := g.Map.PlaceUnit(unit); err != nil {
 		return err
 	}
@@ -96,12 +96,12 @@ func (g *Game) handleStartClientRequestAction(action StartClientRequestAction) e
 
 	responsAction := StartClientResponseAction{
 		Type:    StartClientResponseActionType,
-		Actions: actionJsons,
+		Payload: actionJsons,
 	}
 	return g.dispatch(responsAction)
 }
 func (g *Game) handleStartClientResponseAction(action StartClientResponseAction) error {
-	for _, actionJson := range action.Actions {
+	for _, actionJson := range action.Payload {
 		a, err := UnmarshalAction([]byte(actionJson))
 		if err != nil {
 			return err
@@ -115,21 +115,21 @@ func (g *Game) handleStartClientResponseAction(action StartClientResponseAction)
 
 func (g *Game) handleMoveUnitAction(action MoveUnitAction) error {
 	//clean position
-	for _, tile := range g.Map.GetTilesByUnitId(action.UnitId) {
+	for _, tile := range g.Map.GetTilesByUnitId(action.Payload.UnitId) {
 		tile.Unit = nil
 	}
-	unit := g.Units[action.UnitId]
+	unit := g.Units[action.Payload.UnitId]
 
-	unit.Position = action.Position
-	unit.Path = action.Path
-	unit.Step = action.Step
+	unit.Position = action.Payload.Position
+	unit.Path = action.Payload.Path
+	unit.Step = action.Payload.Step
 
 	if err := g.Map.PlaceUnit(unit); err != nil {
 		return err
 	}
 	//reserve next step
-	if len(action.Path) > action.Step {
-		nextStep := action.Path[action.Step]
+	if len(action.Payload.Path) > action.Payload.Step {
+		nextStep := action.Payload.Path[action.Payload.Step]
 		if err := g.Map.PlaceUnit(unit, nextStep); err != nil {
 			if err := g.handleAction(StopUnitAction{
 				Type:   StopUnitActionType,

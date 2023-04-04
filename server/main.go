@@ -33,12 +33,12 @@ func main() {
 
 	g.HandleAction(game.AddUnitAction{
 		Type: game.AddUnitActionType,
-		Unit: *game.NewUnit(color.RGBA{255, 0, 0, 255}, game.NewPF(0, 0), 32, 32),
+		Payload: *game.NewUnit(color.RGBA{255, 0, 0, 255}, game.NewPF(0, 0), 32, 32),
 	})
 
 	g.HandleAction(game.AddUnitAction{
 		Type: game.AddUnitActionType,
-		Unit: *game.NewUnit(color.RGBA{0, 0, 255, 255}, game.NewPF(1, 0), 32, 32),
+		Payload: *game.NewUnit(color.RGBA{0, 0, 255, 255}, game.NewPF(1, 0), 32, 32),
 	})
 
 	server := NewServer(g, clients, dispatchFn)

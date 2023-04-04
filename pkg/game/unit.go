@@ -86,10 +86,12 @@ func (u *Unit) Update() error {
 func (u *Unit) dispatchMove() error {
 	moveAction := MoveUnitAction{
 		Type:     MoveUnitActionType,
-		UnitId:   u.Id,
-		Position: u.Position,
-		Path:     u.Path,
-		Step:     u.Step,
+		Payload: MoveUnitActionPayload{
+			UnitId:   u.Id,
+			Position: u.Position,
+			Path:     u.Path,
+			Step:     u.Step,
+		},
 	}
 	return u.dispatch(moveAction)
 }
