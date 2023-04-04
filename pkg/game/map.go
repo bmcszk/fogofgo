@@ -58,8 +58,8 @@ func (m *Map) GetTilesByUnitId(unitId uuid.UUID) []*Tile {
 }
 
 func (m *Map) PlaceUnit(unit *Unit, positions ...PF) error {
-	if len(positions) ==0 {
-		positions = []PF {unit.Position}
+	if len(positions) == 0 {
+		positions = []PF{unit.Position}
 	}
 	for _, p := range positions {
 		x, y := p.Ints()
@@ -74,7 +74,7 @@ func (m *Map) PlaceUnit(unit *Unit, positions ...PF) error {
 		}
 		tile.Unit = unit
 	}
-	
+
 	return nil
 }
 

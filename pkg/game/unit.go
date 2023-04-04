@@ -13,20 +13,20 @@ const (
 
 type Unit struct {
 	Id       uuid.UUID
-	Color          color.RGBA
+	Color    color.RGBA
 	Position PF
 	Selected bool
 	Size     PF
 	Velocity PF `json:"-"`
 	Path     []PF
 	Step     int
-	dispatch    func(any)error `json:"-"`
+	dispatch func(any) error `json:"-"`
 }
 
 func NewUnit(c color.RGBA, position PF, width, height int) *Unit {
 	return &Unit{
 		Id:       uuid.New(),
-		Color: c,
+		Color:    c,
 		Position: position,
 		Size:     NewPF(float64(width), float64(height)),
 	}
@@ -85,11 +85,11 @@ func (u *Unit) Update() error {
 
 func (u *Unit) dispatchMove() error {
 	moveAction := MoveUnitAction{
-		Type: MoveUnitActionType,
-		UnitId: u.Id,
+		Type:     MoveUnitActionType,
+		UnitId:   u.Id,
 		Position: u.Position,
-		Path: u.Path,
-		Step: u.Step,
+		Path:     u.Path,
+		Step:     u.Step,
 	}
 	return u.dispatch(moveAction)
 }

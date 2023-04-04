@@ -23,16 +23,16 @@ const (
 type Game struct {
 	*game.Game
 	Map              *Map
-	Units   map[uuid.UUID]*Unit
+	Units            map[uuid.UUID]*Unit
 	cameraX, cameraY int
 	selectionBox     *image.Rectangle
-	gameMux *sync.Mutex
+	gameMux          *sync.Mutex
 }
 
 func NewGame(dispatch func(any) error) *Game {
 	return &Game{
-		Game:       game.NewGame(dispatch),
-		Map: NewMap(),
+		Game:    game.NewGame(dispatch),
+		Map:     NewMap(),
 		Units:   make(map[uuid.UUID]*Unit),
 		gameMux: &sync.Mutex{},
 	}
@@ -44,7 +44,7 @@ func (g *Game) HandleAction(action any) error {
 	if err := g.Game.HandleAction(action); err != nil {
 		return err
 	}
-	return g.handleAction(action) 
+	return g.handleAction(action)
 }
 
 func (g *Game) handleAction(action any) error {
@@ -163,7 +163,7 @@ func (g *Game) Update() error {
 		tileX, tileY := worldX/tileSize, worldY/tileSize
 		for _, u := range g.Units {
 			if u.Selected {
-				u.MoveTo(tileX, tileY)
+				u.MoveTo(tileX, tileY) //TODO action?
 			}
 		}
 	}

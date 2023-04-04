@@ -13,15 +13,15 @@ import (
 var upgrader = websocket.Upgrader{}
 
 type Server struct {
-	game    *game.Game
-	clients map[*websocket.Conn]bool
-	dispatch func(any)error
+	game     *game.Game
+	clients  map[*websocket.Conn]bool
+	dispatch func(any) error
 }
 
-func NewServer(g *game.Game, clients map[*websocket.Conn]bool, dispatchFn func(any)error) *Server {
+func NewServer(g *game.Game, clients map[*websocket.Conn]bool, dispatchFn func(any) error) *Server {
 	return &Server{
-		game:    g,
-		clients: clients, // connected clients,
+		game:     g,
+		clients:  clients, // connected clients,
 		dispatch: dispatchFn,
 	}
 }
@@ -98,8 +98,7 @@ func (s *Server) Broadcast(action any, excludes ...*websocket.Conn) error {
 	return nil
 }
 
-
-func dispatch(clients map[*websocket.Conn]bool) func (any) error {
+func dispatch(clients map[*websocket.Conn]bool) func(any) error {
 	return func(action any) error {
 		log.Printf("dispatch %+v", action)
 		for c, connected := range clients {

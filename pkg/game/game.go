@@ -10,16 +10,16 @@ import (
 )
 
 type Game struct {
-	Map     *Map
-	Units   map[uuid.UUID]*Unit
-	gameMux *sync.Mutex
-	actions []any
-	Dispatch func(any) error
+	Map      *Map
+	Units    map[uuid.UUID]*Unit
+	gameMux  *sync.Mutex
+	actions  []any
+	dispatch func(any) error
 }
 
 func NewGame(dispatch func(any) error) *Game {
 	g := &Game{
-		Map: NewMap(),
+		Map:     NewMap(),
 		Units:   make(map[uuid.UUID]*Unit),
 		gameMux: &sync.Mutex{},
 	}
@@ -30,16 +30,16 @@ func NewGame(dispatch func(any) error) *Game {
 		if err := g.HandleAction(a); err != nil {
 			return err
 		}
-		return nil 
+		return nil
 	} */
-	g.Dispatch = dispatch
+	g.dispatch = dispatch
 	return g
 }
 
 func (g *Game) HandleAction(action any) error {
 	g.gameMux.Lock()
 	defer g.gameMux.Unlock()
-	return g.handleAction(action) 
+	return g.handleAction(action)
 }
 
 func (g *Game) handleAction(action any) error {
@@ -63,6 +63,11 @@ func (g *Game) handleAction(action any) error {
 			return err
 		}
 		g.actions = append(g.actions, action)
+	case StopUnitAction:
+		if err := g.handleStopUnitAction(a); err != nil {
+			return err
+		}
+		g.actions = append(g.actions, action)
 	default:
 		return errors.New("action not recognized")
 	}
@@ -71,7 +76,7 @@ func (g *Game) handleAction(action any) error {
 
 func (g *Game) handleAddUnitAction(action AddUnitAction) error {
 	unit := &action.Unit
-	unit.dispatch = g.Dispatch
+	unit.dispatch = g.dispatch
 	g.Units[action.Unit.Id] = unit
 	if err := g.Map.PlaceUnit(unit); err != nil {
 		return err
@@ -89,11 +94,11 @@ func (g *Game) handleStartClientRequestAction(action StartClientRequestAction) e
 		actionJsons = append(actionJsons, string(actionJson))
 	}
 
-	responsAction := StartClientResponseAction {
-		Type: StartClientResponseActionType,
+	responsAction := StartClientResponseAction{
+		Type:    StartClientResponseActionType,
 		Actions: actionJsons,
 	}
-	return g.Dispatch(responsAction)
+	return g.dispatch(responsAction)
 }
 func (g *Game) handleStartClientResponseAction(action StartClientResponseAction) error {
 	for _, actionJson := range action.Actions {
@@ -126,11 +131,31 @@ func (g *Game) handleMoveUnitAction(action MoveUnitAction) error {
 	if len(action.Path) > action.Step {
 		nextStep := action.Path[action.Step]
 		if err := g.Map.PlaceUnit(unit, nextStep); err != nil {
-			action.Step -= 1
-			if err := g.Dispatch(action); err != nil {
+			if err := g.handleAction(StopUnitAction{
+				Type:   StopUnitActionType,
+				UnitId: unit.Id,
+			}); err != nil {
 				return err
 			}
+			/* 
+			Retry moving to target in 1s
+			go func(a MoveUnitAction) {
+				time.Sleep(1 * time.Second)
+				a.Step -= 1
+				if err := g.handleAction(a); err != nil {
+					log.Println(err)
+				}
+			}(action) */
 		}
 	}
+	return nil
+}
+
+func (g *Game) handleStopUnitAction(action StopUnitAction) error {
+	unit := g.Units[action.UnitId]
+
+	unit.Path = []PF{}
+	unit.Step = 0
+
 	return nil
 }
