@@ -27,12 +27,13 @@ type Unit struct {
 	Velocity PF `json:"-"`
 	Path     []PF
 	Step     int
-	dispatch func(any) error `json:"-"`
+	dispatch DispatchFunc `json:"-"`
 }
 
-func NewUnit(c color.RGBA, position PF, width, height int) *Unit {
+func NewUnit(owner PlayerIdType, c color.RGBA, position PF, width, height int) *Unit {
 	return &Unit{
 		Id:       NewUnitId(),
+		Owner: owner,
 		Color:    c,
 		Position: position,
 		Size:     NewPF(float64(width), float64(height)),

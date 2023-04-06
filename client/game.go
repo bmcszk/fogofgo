@@ -28,7 +28,7 @@ type Game struct {
 	gameMux          *sync.Mutex
 }
 
-func NewGame(dispatch func(any) error) *Game {
+func NewGame(dispatch game.DispatchFunc) *Game {
 	return &Game{
 		Game:    game.NewGame(dispatch),
 		Map:     NewMap(),
@@ -47,7 +47,7 @@ func (g *Game) HandleAction(action any) error {
 }
 
 func (g *Game) handleAction(action any) error {
-	log.Printf("game handle %+v", action)
+	log.Printf("client handle %+v", action)
 	switch a := action.(type) {
 	case game.AddUnitAction:
 		if err := g.handleAddUnitAction(a); err != nil {

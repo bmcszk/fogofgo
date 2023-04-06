@@ -6,22 +6,30 @@ import (
 	"sync"
 )
 
+type DispatchFunc func(any) error
+
 type Game struct {
 	Map      *Map
 	Units    map[UnitIdType]*Unit
 	Players  map[PlayerIdType]*Player
+	Starting map[PF]*PlayerIdType
 	gameMux  *sync.Mutex
-	dispatch func(any) error
+	dispatch DispatchFunc
 }
 
-func NewGame(dispatch func(any) error) *Game {
+func NewGame(dispatch DispatchFunc) *Game {
 	g := &Game{
 		Map:     NewMap(),
 		Units:   make(map[UnitIdType]*Unit),
 		Players: make(map[PlayerIdType]*Player),
+		Starting: make(map[PF]*PlayerIdType),
 		gameMux: &sync.Mutex{},
 	}
 	g.dispatch = dispatch
+	g.Starting[PF{1, 1}] = nil
+	g.Starting[PF{15, 1}] = nil
+	g.Starting[PF{1, 15}] = nil
+	g.Starting[PF{15, 15}] = nil
 	return g
 }
 
@@ -71,7 +79,8 @@ func (g *Game) handleAddUnitAction(action AddUnitAction) error {
 }
 
 func (g *Game) handleStartClientRequestAction(action StartClientRequestAction) error {
-	g.Players[action.Payload.Id] = &action.Payload
+	player := &action.Payload
+	g.Players[action.Payload.Id] = player
 
 	responsAction := StartClientResponseAction{
 		Type: StartClientResponseActionType,
@@ -87,7 +96,25 @@ func (g *Game) handleStartClientRequestAction(action StartClientRequestAction) e
 	for playerId, player := range g.Players {
 		responsAction.Payload.Players[playerId] = *player
 	}
-	return g.dispatch(responsAction)
+	if err := g.dispatch(responsAction); err != nil {
+		return err
+	}
+	var startingP PF
+	for sp, p := range g.Starting {
+		if p == nil {
+			startingP = sp
+			g.Starting[sp] = &player.Id
+			break
+		}
+	}
+	unitAction := AddUnitAction{
+		Type: AddUnitActionType,
+		Payload: *NewUnit(action.Payload.Id,player.Color, startingP, 32, 32),
+	}
+	if err := g.dispatch(unitAction); err != nil {
+		return err
+	}
+	return nil
 }
 
 func (g *Game) handleStartClientResponseAction(action StartClientResponseAction) error {

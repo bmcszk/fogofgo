@@ -1,7 +1,6 @@
 package main
 
 import (
-	"image/color"
 	"log"
 	"net/http"
 
@@ -15,33 +14,23 @@ var upgrader = websocket.Upgrader{}
 type Server struct {
 	game     *Game
 	clients  map[*websocket.Conn]bool
-	dispatch func(any) error
+	dispatch game.DispatchFunc
 }
 
-func NewServer(g *Game, clients map[*websocket.Conn]bool, dispatchFn func(any) error) *Server {
+func NewServer(g *Game, clients map[*websocket.Conn]bool, dispatch game.DispatchFunc) *Server {
 	return &Server{
 		game:     g,
 		clients:  clients, // connected clients,
-		dispatch: dispatchFn,
+		dispatch: dispatch,
 	}
 }
 
 func main() {
 	clients := make(map[*websocket.Conn]bool)
-	dispatchFn := dispatch(clients)
-	g := NewGame(dispatchFn)
+	dispatch := serverDispatch(clients)
+	g := NewGame(dispatch)
 
-	g.HandleAction(game.AddUnitAction{
-		Type:    game.AddUnitActionType,
-		Payload: *game.NewUnit(color.RGBA{255, 0, 0, 255}, game.NewPF(0, 0), 32, 32),
-	}, nil)
-
-	g.HandleAction(game.AddUnitAction{
-		Type:    game.AddUnitActionType,
-		Payload: *game.NewUnit(color.RGBA{0, 0, 255, 255}, game.NewPF(1, 0), 32, 32),
-	}, nil)
-
-	server := NewServer(g, clients, dispatchFn)
+	server := NewServer(g, clients, dispatch)
 	// Configure websocket route
 	http.HandleFunc("/ws", server.handleConnections)
 
@@ -98,7 +87,7 @@ func (s *Server) Broadcast(action any, excludes ...*websocket.Conn) error {
 	return nil
 }
 
-func dispatch(clients map[*websocket.Conn]bool) func(any) error {
+func serverDispatch(clients map[*websocket.Conn]bool) game.DispatchFunc {
 	return func(action any) error {
 		log.Printf("dispatch %+v", action)
 		for c, connected := range clients {

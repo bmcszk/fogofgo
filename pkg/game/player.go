@@ -1,6 +1,10 @@
 package game
 
-import "github.com/google/uuid"
+import (
+	"image/color"
+
+	"github.com/google/uuid"
+)
 
 type PlayerIdType struct {
 	uuid.UUID
@@ -9,6 +13,8 @@ type PlayerIdType struct {
 type Player struct {
 	Id   PlayerIdType
 	Name string
+	Color color.RGBA
+	Start PF
 }
 
 func NewPlayer(name string) *Player {

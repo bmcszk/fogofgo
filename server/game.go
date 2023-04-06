@@ -14,7 +14,7 @@ type Game struct {
 	gameMux *sync.Mutex
 }
 
-func NewGame(dispatch func(any) error) *Game {
+func NewGame(dispatch game.DispatchFunc) *Game {
 	return &Game{
 		Game:    game.NewGame(dispatch),
 		Players: make(map[game.PlayerIdType]*Player),
