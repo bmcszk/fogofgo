@@ -3,7 +3,6 @@ package main
 import (
 	"image"
 	"image/color"
-	"log"
 	"math"
 	"sync"
 
@@ -37,7 +36,7 @@ func NewGame(dispatch game.DispatchFunc) *Game {
 	}
 }
 
-func (g *Game) HandleAction(action any) error {
+func (g *Game) HandleAction(action game.Action) error {
 	g.gameMux.Lock()
 	defer g.gameMux.Unlock()
 	if err := g.Game.HandleAction(action); err != nil {
@@ -46,14 +45,13 @@ func (g *Game) HandleAction(action any) error {
 	return g.handleAction(action)
 }
 
-func (g *Game) handleAction(action any) error {
-	log.Printf("client handle %+v", action)
+func (g *Game) handleAction(action game.Action) error {
 	switch a := action.(type) {
 	case game.AddUnitAction:
 		if err := g.handleAddUnitAction(a); err != nil {
 			return err
 		}
-	case game.StartClientResponseAction:
+	case game.PlayerInitSuccessAction:
 		if err := g.handleStartClientResponseAction(a); err != nil {
 			return err
 		}
@@ -67,7 +65,7 @@ func (g *Game) handleAddUnitAction(action game.AddUnitAction) error {
 	return nil
 }
 
-func (g *Game) handleStartClientResponseAction(action game.StartClientResponseAction) error {
+func (g *Game) handleStartClientResponseAction(action game.PlayerInitSuccessAction) error {
 	for unitId := range action.Payload.Units {
 		g.Units[unitId] = NewUnit(g.Game.Units[unitId])
 	}
@@ -156,7 +154,13 @@ func (g *Game) Update() error {
 		tileX, tileY := worldX/tileSize, worldY/tileSize
 		for _, u := range g.Units {
 			if u.Selected {
-				u.MoveTo(tileX, tileY) //TODO action?
+				g.Game.Dispatch(game.MoveStartAction{
+					Type: game.MoveStartActionType,
+					Payload: game.MoveStartPayload{
+						UnitId: u.Id,
+						Point:  game.NewPF(float64(tileX), float64(tileY)),
+					},
+				})
 			}
 		}
 	}

@@ -33,7 +33,7 @@ type Unit struct {
 func NewUnit(owner PlayerIdType, c color.RGBA, position PF, width, height int) *Unit {
 	return &Unit{
 		Id:       NewUnitId(),
-		Owner: owner,
+		Owner:    owner,
 		Color:    c,
 		Position: position,
 		Size:     NewPF(float64(width), float64(height)),
@@ -44,8 +44,7 @@ func NewUnitId() UnitIdType {
 	return UnitIdType{uuid.New()}
 }
 
-func (u *Unit) MoveTo(x, y int) {
-	target := NewPF(float64(x), float64(y))
+func (u *Unit) MoveTo(target PF) {
 	if len(u.Path) > 0 && target == u.Path[len(u.Path)-1] {
 		return
 	}
@@ -83,9 +82,7 @@ func (u *Unit) Update() error {
 		u.Velocity = NewPF(0, 0)
 		u.Position = u.Path[u.Step]
 		u.Step = u.Step + 1
-		if err := u.dispatchMove(); err != nil {
-			return err
-		}
+		u.dispatchMove()
 	} else {
 		dx, dy = dx/dist, dy/dist
 		u.Velocity = NewPF(dx*UnitSpeed, dy*UnitSpeed)
@@ -95,15 +92,15 @@ func (u *Unit) Update() error {
 	return nil
 }
 
-func (u *Unit) dispatchMove() error {
-	moveAction := MoveUnitAction{
-		Type: MoveUnitActionType,
-		Payload: MoveUnitActionPayload{
+func (u *Unit) dispatchMove() {
+	moveAction := MoveStepAction{
+		Type: MoveStepActionType,
+		Payload: MoveStepPayload{
 			UnitId:   u.Id,
 			Position: u.Position,
 			Path:     u.Path,
 			Step:     u.Step,
 		},
 	}
-	return u.dispatch(moveAction)
+	u.dispatch(moveAction)
 }

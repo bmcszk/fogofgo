@@ -11,8 +11,8 @@ type PlayerIdType struct {
 }
 
 type Player struct {
-	Id   PlayerIdType
-	Name string
+	Id    PlayerIdType
+	Name  string
 	Color color.RGBA
 	Start PF
 }

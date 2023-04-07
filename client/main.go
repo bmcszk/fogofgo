@@ -2,6 +2,7 @@ package main
 
 import (
 	"crypto/md5"
+	"errors"
 	"image/color"
 	"log"
 	"math/rand"
@@ -39,6 +40,17 @@ func init() {
 }
 
 func main() {
+	if len(os.Args) < 2 {
+		log.Fatal(errors.New("agrument missing"))
+	}
+	name := os.Args[1]
+
+	hash := md5.Sum([]byte(name))
+	id, err := uuid.FromBytes(hash[:])
+	if err != nil {
+		log.Fatal(err)
+	}
+	playerId := game.PlayerIdType{UUID: id}
 	u := url.URL{Scheme: "ws", Host: "localhost:8000", Path: "/ws"}
 	log.Printf("connecting to %s", u.String())
 
@@ -48,7 +60,8 @@ func main() {
 	}
 	defer ws.Close()
 
-	dispatch := clientDispatch(ws)
+	outgoingActions := make(chan game.Action, 10)
+	dispatch := clientDispatch(outgoingActions)
 	g := NewGame(dispatch)
 
 	// Read messages from the server
@@ -62,33 +75,30 @@ func main() {
 			if err != nil {
 				log.Fatal(err)
 			}
+			log.Printf("handle %s", action.GetType())
 			if err := g.HandleAction(action); err != nil {
 				log.Println(err)
 			}
 		}
 	}()
 
-	if len (os.Args) > 1 {
-		name := os.Args[1]
-
-		hash := md5.Sum([]byte(name))
-		id, err := uuid.FromBytes(hash[:])
-		if err != nil {
-			log.Fatal(err)
+	go func() {
+		for action := range outgoingActions {
+			log.Printf("dispatch %s", action.GetType())
+			if err := ws.WriteJSON(action); err != nil {
+				log.Println("write:", err)
+			}
 		}
-		if err := dispatch(game.StartClientRequestAction{
-			Type: game.StartClientRequestActionType,
-			Payload: game.Player{
-				Id:   game.PlayerIdType{UUID: id},
-				Name: name,
-				Color: nameToColor(name),
-			},
-		}); err != nil {
-			log.Fatal(err)
-		}
-	}
+	}()
 
-	
+	dispatch(game.PlayerInitAction{
+		Type: game.PlayerInitActionType,
+		Payload: game.Player{
+			Id:    playerId,
+			Name:  name,
+			Color: nameToColor(name),
+		},
+	})
 
 	ebiten.SetWindowSize(screenWidth, screenHeight)
 	ebiten.SetWindowResizingMode(ebiten.WindowResizingModeEnabled)
@@ -99,27 +109,30 @@ func main() {
 	}
 }
 
-func clientDispatch(c *websocket.Conn) game.DispatchFunc {
-	return func(action any) error {
-		log.Printf("dispatch %+v", action)
-		if err := c.WriteJSON(action); err != nil {
-			log.Println("write:", err)
-		}
-		return nil
+func clientDispatch(outgoing chan game.Action) game.DispatchFunc {
+	return func(action game.Action) {
+		outgoing <- action
 	}
 }
 
-func nameToColor( name string) color.RGBA {
+func nameToColor(name string) color.RGBA {
 	name = strings.TrimSpace(name)
 	name = strings.ToLower(name)
 	switch name {
-	case "red": return color.RGBA{255, 0, 0, 255}
-	case "green": return color.RGBA{0, 255, 0, 255}
-	case "blue": return color.RGBA{0, 0, 255, 255}
-	case "yellow": return color.RGBA{255, 255, 0, 255}
-	case "cyan": return color.RGBA{0, 255, 255, 255}
-	case "purple": return color.RGBA{255, 0, 255, 255}
-	default: return randomRGBA()
+	case "red":
+		return color.RGBA{255, 0, 0, 255}
+	case "green":
+		return color.RGBA{0, 255, 0, 255}
+	case "blue":
+		return color.RGBA{0, 0, 255, 255}
+	case "yellow":
+		return color.RGBA{255, 255, 0, 255}
+	case "cyan":
+		return color.RGBA{0, 255, 255, 255}
+	case "purple":
+		return color.RGBA{255, 0, 255, 255}
+	default:
+		return randomRGBA()
 	}
 }
 

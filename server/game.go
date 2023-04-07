@@ -1,7 +1,6 @@
 package main
 
 import (
-	"log"
 	"sync"
 
 	"github.com/bmcszk/gptrts/pkg/game"
@@ -22,19 +21,21 @@ func NewGame(dispatch game.DispatchFunc) *Game {
 	}
 }
 
-func (g *Game) HandleAction(action any, ws *websocket.Conn) error {
+func (g *Game) HandleAction(action game.Action, ws *websocket.Conn) error {
 	g.gameMux.Lock()
 	defer g.gameMux.Unlock()
+	if err := g.handleAction(action, ws); err != nil {
+		return err
+	}
 	if err := g.Game.HandleAction(action); err != nil {
 		return err
 	}
-	return g.handleAction(action, ws)
+	return nil
 }
 
 func (g *Game) handleAction(action any, ws *websocket.Conn) error {
-	log.Printf("server handle %+v", action)
 	switch a := action.(type) {
-	case game.StartClientRequestAction:
+	case game.PlayerInitAction:
 		if err := g.handleStartClientRequestAction(a, ws); err != nil {
 			return err
 		}
@@ -42,7 +43,7 @@ func (g *Game) handleAction(action any, ws *websocket.Conn) error {
 	return nil
 }
 
-func (g *Game) handleStartClientRequestAction(action game.StartClientRequestAction, ws *websocket.Conn) error {
+func (g *Game) handleStartClientRequestAction(action game.PlayerInitAction, ws *websocket.Conn) error {
 	g.Players[action.Payload.Id] = NewPlayer(&action.Payload, ws)
 	return nil
 }

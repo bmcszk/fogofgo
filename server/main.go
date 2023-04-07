@@ -6,33 +6,31 @@ import (
 
 	"github.com/bmcszk/gptrts/pkg/game"
 	"github.com/gorilla/websocket"
-	"golang.org/x/exp/slices"
 )
 
 var upgrader = websocket.Upgrader{}
 
 type Server struct {
-	game     *Game
-	clients  map[*websocket.Conn]bool
-	dispatch game.DispatchFunc
+	game      *Game
+	clients   map[*websocket.Conn]bool
+	broadcast chan game.Action
 }
 
-func NewServer(g *Game, clients map[*websocket.Conn]bool, dispatch game.DispatchFunc) *Server {
+func NewServer() *Server {
 	return &Server{
-		game:     g,
-		clients:  clients, // connected clients,
-		dispatch: dispatch,
+		clients:   make(map[*websocket.Conn]bool), // connected clients,
+		broadcast: make(chan game.Action, 10),
 	}
 }
 
 func main() {
-	clients := make(map[*websocket.Conn]bool)
-	dispatch := serverDispatch(clients)
-	g := NewGame(dispatch)
+	server := NewServer()
 
-	server := NewServer(g, clients, dispatch)
+	server.game = NewGame(server.dispatch())
 	// Configure websocket route
 	http.HandleFunc("/ws", server.handleConnections)
+
+	go server.handleOutMessages()
 
 	// Start the server on localhost port 8000 and log any errors
 	log.Println("http server started on :8000")
@@ -54,26 +52,50 @@ func (s *Server) handleConnections(w http.ResponseWriter, r *http.Request) {
 	// Register our new client
 	s.clients[ws] = true
 
+	s.handleInMessages(ws)
+}
+
+func (s *Server) handleInMessages(ws *websocket.Conn) {
 	for {
 		_, bytes, err := ws.ReadMessage()
 		if err != nil {
-			log.Fatal(err)
+			log.Println(err)
 		}
 		action, err := game.UnmarshalAction(bytes)
 		if err != nil {
-			log.Fatal(err)
+			log.Println(err)
 		}
+		log.Printf("handle %s", action.GetType())
 		if err := s.game.HandleAction(action, ws); err != nil {
 			log.Println(err)
 		}
-		if err := s.Broadcast(action); err != nil {
-			log.Println(err)
+		if action.GetType() != game.PlayerInitActionType {
+			if err := s.Broadcast(action); err != nil {
+				log.Println(err)
+			}
 		}
 	}
 }
 
-func (s *Server) Broadcast(action any, excludes ...*websocket.Conn) error {
-	recipients := []*websocket.Conn{}
+func (s *Server) handleOutMessages() {
+	for action := range s.broadcast {
+		if action.GetType() == game.PlayerInitSuccessActionType {
+			payload := action.GetPayload().(game.PlayerInitSuccessPayload)
+			if err := s.game.Players[payload.PlayerId].ws.WriteJSON(action); err != nil {
+				log.Println(err)
+			}
+		} else {
+			for ws := range s.clients {
+				if err := ws.WriteJSON(action); err != nil {
+					log.Println(err)
+				}
+			}
+		}
+	}
+}
+
+func (s *Server) Broadcast(action game.Action, excludes ...*websocket.Conn) error {
+	/* recipients := []*websocket.Conn{}
 	for c, connected := range s.clients {
 		if connected && !slices.Contains(excludes, c) {
 			recipients = append(recipients, c)
@@ -83,20 +105,14 @@ func (s *Server) Broadcast(action any, excludes ...*websocket.Conn) error {
 		if err := recipient.WriteJSON(action); err != nil {
 			return err
 		}
-	}
+	} */
+	s.broadcast <- action
 	return nil
 }
 
-func serverDispatch(clients map[*websocket.Conn]bool) game.DispatchFunc {
-	return func(action any) error {
-		log.Printf("dispatch %+v", action)
-		for c, connected := range clients {
-			if connected {
-				if err := c.WriteJSON(action); err != nil {
-					log.Println("write:", err)
-				}
-			}
-		}
-		return nil
+func (s *Server) dispatch() game.DispatchFunc {
+	return func(action game.Action) {
+		log.Printf("dispatch %s", action.GetType())
+		s.broadcast <- action
 	}
 }

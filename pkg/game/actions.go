@@ -8,65 +8,72 @@ import (
 type ActionType string
 
 const (
-	StartClientRequestActionType  ActionType = "StartClientRequestAction"
-	StartClientResponseActionType ActionType = "StartClientResponseAction"
-	AddUnitActionType             ActionType = "AddUnitAction"
-	MoveUnitActionType            ActionType = "MoveUnitAction"
-	StopUnitActionType            ActionType = "StopUnitAction"
+	PlayerInitActionType        ActionType = "PlayerInit"
+	PlayerInitSuccessActionType ActionType = "PlayerInitSuccess"
+	AddUnitActionType           ActionType = "AddUnitAction"
+	MoveStartActionType         ActionType = "MoveStartAction"
+	MoveStepActionType          ActionType = "MoveStepAction"
+	MoveStopActionType          ActionType = "MoveStopAction"
 )
 
-type Action[T any] struct {
+type Action interface {
+	GetType() ActionType
+	GetPayload() any
+}
+
+type GenericAction[T any] struct {
 	Type    ActionType
 	Payload T
 }
 
-type StartClientRequestAction struct {
-	Type    ActionType
-	Payload Player
+func (a GenericAction[T]) GetType() ActionType {
+	return a.Type
 }
 
-type StartClientResponseAction struct {
-	Type    ActionType
-	Payload StartClientResponsePayload
+func (a GenericAction[T]) GetPayload() any {
+	return a.Payload
 }
 
-type StartClientResponsePayload struct {
-	Map     Map
-	Units   map[UnitIdType]Unit
-	Players map[PlayerIdType]Player
+type PlayerInitAction = GenericAction[Player]
+
+type PlayerInitSuccessAction = GenericAction[PlayerInitSuccessPayload]
+
+type PlayerInitSuccessPayload struct {
+	PlayerId PlayerIdType
+	Map      Map
+	Units    map[UnitIdType]Unit
+	Players  map[PlayerIdType]Player
 }
 
-type AddUnitAction struct {
-	Type    ActionType
-	Payload Unit
+type AddUnitAction = GenericAction[Unit]
+
+type MoveStartAction = GenericAction[MoveStartPayload]
+
+type MoveStartPayload struct {
+	UnitId UnitIdType
+	Point  PF
 }
 
-type MoveUnitAction struct {
-	Type    ActionType
-	Payload MoveUnitActionPayload
-}
+type MoveStepAction = GenericAction[MoveStepPayload]
 
-type MoveUnitActionPayload struct {
+type MoveStepPayload struct {
 	UnitId   UnitIdType
 	Position PF
 	Path     []PF
 	Step     int
 }
 
-type StopUnitAction struct {
-	Type   ActionType
-	UnitId UnitIdType
-}
+type MoveStopAction = GenericAction[UnitIdType]
 
 func CreateAction(actionType ActionType) (any, error) {
 	switch actionType {
-	case StartClientRequestActionType:
-		return StartClientRequestAction{
+	case PlayerInitActionType:
+		return PlayerInitAction{
 			Type: actionType,
 		}, nil
 
-	case StartClientResponseActionType:
-		return StartClientResponseAction{
+	case PlayerInitSuccessActionType:
+		return PlayerInitSuccessAction{
 			Type: actionType,
 		}, nil
 
@@ -75,13 +82,13 @@ func CreateAction(actionType ActionType) (any, error) {
 			Type: actionType,
 		}, nil
 
-	case MoveUnitActionType:
-		return MoveUnitAction{
+	case MoveStepActionType:
+		return MoveStepAction{
 			Type: actionType,
 		}, nil
 
-	case StopUnitActionType:
-		return StopUnitAction{
+	case MoveStopActionType:
+		return MoveStopAction{
 			Type: actionType,
 		}, nil
 
@@ -90,21 +97,21 @@ func CreateAction(actionType ActionType) (any, error) {
 	}
 }
 
-func UnmarshalAction(bytes []byte) (any, error) {
-	var msg Action[any]
+func UnmarshalAction(bytes []byte) (Action, error) {
+	var msg GenericAction[any]
 	if err := json.Unmarshal(bytes, &msg); err != nil {
 		return nil, err
 	}
 	switch msg.Type {
-	case StartClientRequestActionType:
-		var action StartClientRequestAction
+	case PlayerInitActionType:
+		var action PlayerInitAction
 		if err := json.Unmarshal(bytes, &action); err != nil {
 			return nil, err
 		}
 		return action, nil
 
-	case StartClientResponseActionType:
-		var action StartClientResponseAction
+	case PlayerInitSuccessActionType:
+		var action PlayerInitSuccessAction
 		if err := json.Unmarshal(bytes, &action); err != nil {
 			return nil, err
 		}
@@ -117,15 +124,22 @@ func UnmarshalAction(bytes []byte) (any, error) {
 		}
 		return action, nil
 
-	case MoveUnitActionType:
-		var action MoveUnitAction
+	case MoveStartActionType:
+		var action MoveStartAction
 		if err := json.Unmarshal(bytes, &action); err != nil {
 			return nil, err
 		}
 		return action, nil
 
-	case StopUnitActionType:
-		var action StopUnitAction
+	case MoveStepActionType:
+		var action MoveStepAction
+		if err := json.Unmarshal(bytes, &action); err != nil {
+			return nil, err
+		}
+		return action, nil
+
+	case MoveStopActionType:
+		var action MoveStopAction
 		if err := json.Unmarshal(bytes, &action); err != nil {
 			return nil, err
 		}
@@ -135,3 +149,13 @@ func UnmarshalAction(bytes []byte) (any, error) {
 		return nil, errors.New("action type unrecognized")
 	}
 }
+
+/* func Convert(a any) Action[any] {
+	switch action := a.(type) {
+	case Action[~]:
+	}
+	return Action[any]{
+		Type: a.Type,
+		Payload: a.Payload,
+	}
+} */
