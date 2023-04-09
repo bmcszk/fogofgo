@@ -3,6 +3,7 @@ package main
 import (
 	"crypto/md5"
 	"errors"
+	"fmt"
 	"image/color"
 	"log"
 	"math/rand"
@@ -10,6 +11,7 @@ import (
 	"os"
 	"strings"
 
+	"github.com/bmcszk/gptrts/pkg/comm"
 	"github.com/bmcszk/gptrts/pkg/game"
 	"github.com/google/uuid"
 	"github.com/gorilla/websocket"
@@ -40,17 +42,8 @@ func init() {
 }
 
 func main() {
-	if len(os.Args) < 2 {
-		log.Fatal(errors.New("agrument missing"))
-	}
-	name := os.Args[1]
-
-	hash := md5.Sum([]byte(name))
-	id, err := uuid.FromBytes(hash[:])
-	if err != nil {
-		log.Fatal(err)
-	}
-	playerId := game.PlayerIdType{UUID: id}
+	name := getName()
+	playerId := getPlayerId(name)
 	u := url.URL{Scheme: "ws", Host: "localhost:8000", Path: "/ws"}
 	log.Printf("connecting to %s", u.String())
 
@@ -60,45 +53,39 @@ func main() {
 	}
 	defer ws.Close()
 
-	outgoingActions := make(chan game.Action, 10)
-	dispatch := clientDispatch(outgoingActions)
-	g := NewGame(dispatch)
+	client := comm.NewClient(ws)
+	client.PlayerId = playerId
 
-	// Read messages from the server
-	go func() {
-		for {
-			_, bytes, err := ws.ReadMessage()
-			if err != nil {
-				log.Fatal(err)
-			}
-			action, err := game.UnmarshalAction(bytes)
-			if err != nil {
-				log.Fatal(err)
-			}
-			log.Printf("handle %s", action.GetType())
-			if err := g.HandleAction(action); err != nil {
+	g := NewGame(client.Dispatch)
+
+	go func(acts <-chan game.Action) {
+		for a := range acts {
+			if err := route(g, client, a); err != nil {
 				log.Println(err)
 			}
 		}
-	}()
+	}(client.OutActions)
 
+	// Read messages from the server
 	go func() {
-		for action := range outgoingActions {
-			log.Printf("dispatch %s", action.GetType())
-			if err := ws.WriteJSON(action); err != nil {
-				log.Println("write:", err)
+		for client.Connected {
+			action, err := client.HandleInMessages()
+			if err != nil {
+				log.Println(err)
+				continue
 			}
+			g.HandleAction(action)
 		}
 	}()
 
-	dispatch(game.PlayerInitAction{
+	client.OutActions <- game.PlayerInitAction{
 		Type: game.PlayerInitActionType,
 		Payload: game.Player{
 			Id:    playerId,
 			Name:  name,
 			Color: nameToColor(name),
 		},
-	})
+	}
 
 	ebiten.SetWindowSize(screenWidth, screenHeight)
 	ebiten.SetWindowResizingMode(ebiten.WindowResizingModeEnabled)
@@ -106,12 +93,6 @@ func main() {
 
 	if err := ebiten.RunGame(g); err != nil {
 		log.Fatal(err)
-	}
-}
-
-func clientDispatch(outgoing chan game.Action) game.DispatchFunc {
-	return func(action game.Action) {
-		outgoing <- action
 	}
 }
 
@@ -144,4 +125,32 @@ func randomRGBA() color.RGBA {
 		B: uint8(rand.Intn(256)),
 		A: 255, // Set alpha to 255 for opaque color
 	}
+}
+
+func getName() string {
+	if len(os.Args) < 2 {
+		log.Fatal(errors.New("agrument missing"))
+	}
+	return os.Args[1]
+}
+
+func getPlayerId(name string) game.PlayerIdType {
+	hash := md5.Sum([]byte(name))
+	id, err := uuid.FromBytes(hash[:])
+	if err != nil {
+		log.Fatal(err)
+	}
+	return game.PlayerIdType{UUID: id}
+}
+
+func route(g *Game, c *comm.Client, action game.Action) error {
+	switch a := action.(type) {
+	case game.MoveStartAction, game.MoveStepAction, game.MoveStopAction:
+		g.HandleAction(a)
+	}
+
+	if err := c.Send(action); err != nil {
+		return fmt.Errorf("route %w", err)
+	}
+	return nil
 }

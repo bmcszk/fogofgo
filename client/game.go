@@ -3,8 +3,8 @@ package main
 import (
 	"image"
 	"image/color"
+	"log"
 	"math"
-	"sync"
 
 	"github.com/bmcszk/gptrts/pkg/convert"
 	"github.com/bmcszk/gptrts/pkg/game"
@@ -24,52 +24,56 @@ type Game struct {
 	Units            map[game.UnitIdType]*Unit
 	cameraX, cameraY int
 	selectionBox     *image.Rectangle
-	gameMux          *sync.Mutex
+	dispatch         game.DispatchFunc
 }
 
 func NewGame(dispatch game.DispatchFunc) *Game {
-	return &Game{
-		Game:    game.NewGame(dispatch),
-		Map:     NewMap(),
-		Units:   make(map[game.UnitIdType]*Unit),
-		gameMux: &sync.Mutex{},
+	g := &Game{
+		Game:     game.NewGame(dispatch),
+		Map:      NewMap(game.NewMap()),
+		Units:    make(map[game.UnitIdType]*Unit),
+		dispatch: dispatch,
 	}
+	return g
 }
 
-func (g *Game) HandleAction(action game.Action) error {
-	g.gameMux.Lock()
-	defer g.gameMux.Unlock()
-	if err := g.Game.HandleAction(action); err != nil {
-		return err
-	}
-	return g.handleAction(action)
+func (g *Game) SetMap(m *game.Map) {
+	g.Game.SetMap(m)
+	g.Map = NewMap(m)
 }
 
-func (g *Game) handleAction(action game.Action) error {
+func (g *Game) SetUnit(unit *game.Unit) {
+	g.Game.SetUnit(unit)
+	g.Units[unit.Id] = NewUnit(unit)
+}
+
+func (g *Game) SetPlayer(player *game.Player) {
+	g.Game.SetPlayer(player)
+}
+
+func (g *Game) HandleAction(action game.Action) {
+	log.Printf("client handle %s", action.GetType())
+	g.Game.HandleAction(action)
 	switch a := action.(type) {
 	case game.AddUnitAction:
-		if err := g.handleAddUnitAction(a); err != nil {
-			return err
-		}
+		g.handleAddUnitAction(a)
 	case game.PlayerInitSuccessAction:
-		if err := g.handleStartClientResponseAction(a); err != nil {
-			return err
-		}
+		g.handlePlayerInitSuccessAction(a)
 	}
-
-	return nil
 }
 
-func (g *Game) handleAddUnitAction(action game.AddUnitAction) error {
-	g.Units[action.Payload.Id] = NewUnit(g.Game.Units[action.Payload.Id])
-	return nil
+func (g *Game) handleAddUnitAction(action game.AddUnitAction) {
+	g.SetUnit(&action.Payload)
 }
 
-func (g *Game) handleStartClientResponseAction(action game.PlayerInitSuccessAction) error {
-	for unitId := range action.Payload.Units {
-		g.Units[unitId] = NewUnit(g.Game.Units[unitId])
+func (g *Game) handlePlayerInitSuccessAction(action game.PlayerInitSuccessAction) {
+	g.SetMap(&action.Payload.Map)
+	for _, unit := range action.Payload.Units {
+		g.SetUnit(&unit)
 	}
-	return nil
+	for _, player := range action.Payload.Players {
+		g.SetPlayer(&player)
+	}
 }
 
 func (g *Game) Layout(outsideWidth, outsideHeight int) (screenWidth, screenHeight int) {
@@ -154,7 +158,7 @@ func (g *Game) Update() error {
 		tileX, tileY := worldX/tileSize, worldY/tileSize
 		for _, u := range g.Units {
 			if u.Selected {
-				g.Game.Dispatch(game.MoveStartAction{
+				g.dispatch(game.MoveStartAction{
 					Type: game.MoveStartActionType,
 					Payload: game.MoveStartPayload{
 						UnitId: u.Id,

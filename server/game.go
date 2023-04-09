@@ -1,49 +1,68 @@
 package main
 
 import (
-	"sync"
+	"log"
 
 	"github.com/bmcszk/gptrts/pkg/game"
-	"github.com/gorilla/websocket"
 )
 
 type Game struct {
 	*game.Game
-	Players map[game.PlayerIdType]*Player
-	gameMux *sync.Mutex
+	dispatch game.DispatchFunc
 }
 
 func NewGame(dispatch game.DispatchFunc) *Game {
-	return &Game{
-		Game:    game.NewGame(dispatch),
-		Players: make(map[game.PlayerIdType]*Player),
-		gameMux: &sync.Mutex{},
+	g := &Game{
+		Game:     game.NewGame(dispatch),
+		dispatch: dispatch,
 	}
+
+	return g
 }
 
-func (g *Game) HandleAction(action game.Action, ws *websocket.Conn) error {
-	g.gameMux.Lock()
-	defer g.gameMux.Unlock()
-	if err := g.handleAction(action, ws); err != nil {
-		return err
-	}
-	if err := g.Game.HandleAction(action); err != nil {
-		return err
-	}
-	return nil
-}
-
-func (g *Game) handleAction(action any, ws *websocket.Conn) error {
+func (g *Game) HandleAction(action game.Action) {
+	log.Printf("server handle %s", action.GetType())
+	g.Game.HandleAction(action)
 	switch a := action.(type) {
 	case game.PlayerInitAction:
-		if err := g.handleStartClientRequestAction(a, ws); err != nil {
-			return err
-		}
+		g.handlePlayerInitAction(a)
 	}
-	return nil
 }
 
-func (g *Game) handleStartClientRequestAction(action game.PlayerInitAction, ws *websocket.Conn) error {
-	g.Players[action.Payload.Id] = NewPlayer(&action.Payload, ws)
-	return nil
+func (g *Game) handlePlayerInitAction(action game.PlayerInitAction) {
+	player := &action.Payload
+	g.Game.Players[action.Payload.Id] = player
+
+	successAction := game.PlayerInitSuccessAction{
+		Type: game.PlayerInitSuccessActionType,
+		Payload: game.PlayerInitSuccessPayload{
+			PlayerId: player.Id,
+			Map:      *g.Map,
+			Units:    make([]game.Unit, 0),
+			Players:  make([]game.Player, 0),
+		},
+	}
+	for _, unit := range g.Game.Units {
+		successAction.Payload.Units = append(successAction.Payload.Units, *unit)
+	}
+	for _, player := range g.Game.Players {
+		successAction.Payload.Players = append(successAction.Payload.Players, *player)
+	}
+	g.dispatch(successAction)
+
+	var startingP game.PF
+	for sp, p := range g.Starting {
+		if p == nil {
+			startingP = sp
+			g.Starting[sp] = &player.Id
+			break
+		}
+	}
+	unit := game.NewUnit(action.Payload.Id, player.Color, startingP, 32, 32)
+	g.Units[unit.Id] = unit // should it driven by action?
+	unitAction := game.AddUnitAction{
+		Type:    game.AddUnitActionType,
+		Payload: *unit,
+	}
+	g.dispatch(unitAction)
 }

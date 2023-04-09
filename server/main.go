@@ -1,9 +1,11 @@
 package main
 
 import (
+	"fmt"
 	"log"
 	"net/http"
 
+	"github.com/bmcszk/gptrts/pkg/comm"
 	"github.com/bmcszk/gptrts/pkg/game"
 	"github.com/gorilla/websocket"
 )
@@ -11,26 +13,25 @@ import (
 var upgrader = websocket.Upgrader{}
 
 type Server struct {
-	game      *Game
-	clients   map[*websocket.Conn]bool
-	broadcast chan game.Action
+	game *Game
+	clients []*comm.Client
 }
 
 func NewServer() *Server {
 	return &Server{
-		clients:   make(map[*websocket.Conn]bool), // connected clients,
-		broadcast: make(chan game.Action, 10),
+		clients: make([]*comm.Client, 0), // connected clients,
 	}
 }
 
 func main() {
 	server := NewServer()
 
-	server.game = NewGame(server.dispatch())
+	g := NewGame(server.dispatch)
+
+	server.game = g
+
 	// Configure websocket route
 	http.HandleFunc("/ws", server.handleConnections)
-
-	go server.handleOutMessages()
 
 	// Start the server on localhost port 8000 and log any errors
 	log.Println("http server started on :8000")
@@ -50,69 +51,60 @@ func (s *Server) handleConnections(w http.ResponseWriter, r *http.Request) {
 	defer ws.Close()
 
 	// Register our new client
-	s.clients[ws] = true
 
-	s.handleInMessages(ws)
-}
+	client := comm.NewClient(ws)
+	s.clients = append(s.clients, client)
 
-func (s *Server) handleInMessages(ws *websocket.Conn) {
-	for {
-		_, bytes, err := ws.ReadMessage()
-		if err != nil {
-			log.Println(err)
-		}
-		action, err := game.UnmarshalAction(bytes)
-		if err != nil {
-			log.Println(err)
-		}
-		log.Printf("handle %s", action.GetType())
-		if err := s.game.HandleAction(action, ws); err != nil {
-			log.Println(err)
-		}
-		if action.GetType() != game.PlayerInitActionType {
-			if err := s.Broadcast(action); err != nil {
+	go func(acts <-chan game.Action) {
+		for a := range acts {
+			if err := s.route(client, a); err != nil {
 				log.Println(err)
 			}
 		}
+	}(client.OutActions)
+
+	for client.Connected {
+		action, err := client.HandleInMessages()
+		if err != nil {
+			log.Println(err)
+			continue
+		}
+		if action.GetType() == game.PlayerInitActionType {
+			client.PlayerId = action.GetPayload().(game.Player).Id
+		}
+		s.broadcast(client, action)
+		s.game.HandleAction(action)
 	}
 }
 
-func (s *Server) handleOutMessages() {
-	for action := range s.broadcast {
-		if action.GetType() == game.PlayerInitSuccessActionType {
-			payload := action.GetPayload().(game.PlayerInitSuccessPayload)
-			if err := s.game.Players[payload.PlayerId].ws.WriteJSON(action); err != nil {
-				log.Println(err)
-			}
-		} else {
-			for ws := range s.clients {
-				if err := ws.WriteJSON(action); err != nil {
-					log.Println(err)
-				}
-			}
+func (s *Server) broadcast(client *comm.Client, action game.Action) {
+	log.Printf("server broadcast %s", action.GetType())
+	for _, c := range s.clients {
+		if c != client {
+			c.Dispatch(action)
 		}
 	}
 }
 
-func (s *Server) Broadcast(action game.Action, excludes ...*websocket.Conn) error {
-	/* recipients := []*websocket.Conn{}
-	for c, connected := range s.clients {
-		if connected && !slices.Contains(excludes, c) {
-			recipients = append(recipients, c)
+func (s *Server) dispatch(action game.Action) {
+	log.Printf("server dispatch %s", action.GetType())
+	for _, c := range s.clients {
+		c.Dispatch(action)
+	}
+}
+
+func (s *Server) route(c *comm.Client, action game.Action) error {
+	switch a := action.(type) {
+	case game.MoveStartAction, game.MoveStepAction, game.MoveStopAction:
+		s.game.HandleAction(a)
+	case game.PlayerInitSuccessAction:
+		if a.Payload.PlayerId != c.PlayerId {
+			return nil
 		}
 	}
-	for _, recipient := range recipients {
-		if err := recipient.WriteJSON(action); err != nil {
-			return err
-		}
-	} */
-	s.broadcast <- action
+
+	if err := c.Send(action); err != nil {
+		return fmt.Errorf("route %w", err)
+	}
 	return nil
-}
-
-func (s *Server) dispatch() game.DispatchFunc {
-	return func(action game.Action) {
-		log.Printf("dispatch %s", action.GetType())
-		s.broadcast <- action
-	}
 }

@@ -1,7 +1,7 @@
 package game
 
 import (
-	"errors"
+	"log"
 	"sync"
 )
 
@@ -13,7 +13,7 @@ type Game struct {
 	Players  map[PlayerIdType]*Player
 	Starting map[PF]*PlayerIdType
 	gameMux  *sync.Mutex
-	Dispatch DispatchFunc
+	dispatch DispatchFunc
 }
 
 func NewGame(dispatch DispatchFunc) *Game {
@@ -23,8 +23,9 @@ func NewGame(dispatch DispatchFunc) *Game {
 		Players:  make(map[PlayerIdType]*Player),
 		Starting: make(map[PF]*PlayerIdType),
 		gameMux:  &sync.Mutex{},
+		dispatch: dispatch,
 	}
-	g.Dispatch = dispatch
+
 	g.Starting[PF{1, 1}] = nil
 	g.Starting[PF{15, 1}] = nil
 	g.Starting[PF{1, 15}] = nil
@@ -32,117 +33,48 @@ func NewGame(dispatch DispatchFunc) *Game {
 	return g
 }
 
-func (g *Game) HandleAction(action Action) error {
-	g.gameMux.Lock()
-	defer g.gameMux.Unlock()
-	return g.handleAction(action)
+func (g *Game) SetMap(m *Map) {
+	g.Map = m
 }
 
-func (g *Game) handleAction(action Action) error {
+func (g *Game) SetUnit(unit *Unit) {
+	g.Units[unit.Id] = unit
+	unit.dispatch = g.dispatch
+}
+
+func (g *Game) SetPlayer(player *Player) {
+	g.Players[player.Id] = player
+}
+
+func (g *Game) HandleAction(action Action) {
 	switch a := action.(type) {
-	case PlayerInitAction:
-		if err := g.handlePlayerInitAction(a); err != nil {
-			return err
-		}
-	case PlayerInitSuccessAction:
-		if err := g.handlePlayerInitSuccessAction(a); err != nil {
-			return err
-		}
 	case AddUnitAction:
-		if err := g.handleAddUnitAction(a); err != nil {
-			return err
-		}
+		g.handleAddUnitAction(a)
 	case MoveStartAction:
-		if err := g.handleMoveStartAction(a); err != nil {
-			return err
-		}
+		g.handleMoveStartAction(a)
 	case MoveStepAction:
-		if err := g.handleMoveStepAction(a); err != nil {
-			return err
-		}
+		g.handleMoveStepAction(a)
 	case MoveStopAction:
-		if err := g.handleMoveStopAction(a); err != nil {
-			return err
-		}
-	default:
-		return errors.New("action not recognized")
+		g.handleMoveStopAction(a)
 	}
-	return nil
 }
 
-func (g *Game) handleAddUnitAction(action AddUnitAction) error {
+func (g *Game) handleAddUnitAction(action AddUnitAction) {
 	unit := &action.Payload
-	unit.dispatch = g.Dispatch
 	g.Units[action.Payload.Id] = unit
 	if err := g.Map.PlaceUnit(unit); err != nil {
-		return err
+		log.Println(err)
+		//dispatch error action
 	}
-	return nil
 }
 
-func (g *Game) handleMoveStartAction(action MoveStartAction) error {
+func (g *Game) handleMoveStartAction(action MoveStartAction) {
 	unit := g.Units[action.Payload.UnitId]
 
 	unit.MoveTo(action.Payload.Point)
-
-	return nil
 }
 
-func (g *Game) handlePlayerInitAction(action PlayerInitAction) error {
-	player := &action.Payload
-	g.Players[action.Payload.Id] = player
-
-	successAction := PlayerInitSuccessAction{
-		Type: PlayerInitSuccessActionType,
-		Payload: PlayerInitSuccessPayload{
-			PlayerId: player.Id,
-			Map:      *g.Map,
-			Units:    make(map[UnitIdType]Unit),
-			Players:  make(map[PlayerIdType]Player),
-		},
-	}
-	for unitId, unit := range g.Units {
-		successAction.Payload.Units[unitId] = *unit
-	}
-	for playerId, player := range g.Players {
-		successAction.Payload.Players[playerId] = *player
-	}
-	g.Dispatch(successAction)
-
-	var startingP PF
-	for sp, p := range g.Starting {
-		if p == nil {
-			startingP = sp
-			g.Starting[sp] = &player.Id
-			break
-		}
-	}
-	unit := NewUnit(action.Payload.Id, player.Color, startingP, 32, 32)
-	g.Units[unit.Id] = unit // should it driven by action?
-	unitAction := AddUnitAction{
-		Type:    AddUnitActionType,
-		Payload: *unit,
-	}
-	g.Dispatch(unitAction)
-
-	return nil
-}
-
-func (g *Game) handlePlayerInitSuccessAction(action PlayerInitSuccessAction) error {
-	g.Map = &action.Payload.Map
-	for unitId, unit := range action.Payload.Units {
-		gUnit := unit
-		g.Units[unitId] = &gUnit
-		gUnit.dispatch = g.Dispatch
-	}
-	for playerId, player := range action.Payload.Players {
-		gPlayer := player
-		g.Players[playerId] = &gPlayer
-	}
-	return nil
-}
-
-func (g *Game) handleMoveStepAction(action MoveStepAction) error {
+func (g *Game) handleMoveStepAction(action MoveStepAction) {
 	//clean position
 	for _, tile := range g.Map.GetTilesByUnitId(action.Payload.UnitId) {
 		tile.UnitId = ZeroUnitId
@@ -154,13 +86,14 @@ func (g *Game) handleMoveStepAction(action MoveStepAction) error {
 	unit.Step = action.Payload.Step
 
 	if err := g.Map.PlaceUnit(unit); err != nil {
-		return err
+		log.Println(err)
+		//dispatch error action
 	}
 	//reserve next step
 	if len(action.Payload.Path) > action.Payload.Step {
 		nextStep := action.Payload.Path[action.Payload.Step]
 		if err := g.Map.PlaceUnit(unit, nextStep); err != nil {
-			g.Dispatch(MoveStopAction{
+			g.dispatch(MoveStopAction{
 				Type:    MoveStopActionType,
 				Payload: unit.Id,
 			})
@@ -175,14 +108,12 @@ func (g *Game) handleMoveStepAction(action MoveStepAction) error {
 				}(action) */
 		}
 	}
-	return nil
 }
 
-func (g *Game) handleMoveStopAction(action MoveStopAction) error {
+func (g *Game) handleMoveStopAction(action MoveStopAction) {
 	unit := g.Units[action.Payload]
 
 	unit.Path = []PF{}
 	unit.Step = 0
 
-	return nil
 }

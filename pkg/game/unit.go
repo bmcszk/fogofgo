@@ -22,8 +22,8 @@ type Unit struct {
 	Owner    PlayerIdType
 	Color    color.RGBA
 	Position PF
-	Selected bool
 	Size     PF
+	Selected bool
 	Velocity PF `json:"-"`
 	Path     []PF
 	Step     int

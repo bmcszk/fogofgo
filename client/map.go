@@ -9,9 +9,9 @@ type Map struct {
 	*game.Map
 }
 
-func NewMap() *Map {
+func NewMap(m *game.Map) *Map {
 	return &Map{
-		Map: game.NewMap(),
+		Map: m,
 	}
 }
 

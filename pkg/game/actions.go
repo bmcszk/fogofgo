@@ -41,8 +41,8 @@ type PlayerInitSuccessAction = GenericAction[PlayerInitSuccessPayload]
 type PlayerInitSuccessPayload struct {
 	PlayerId PlayerIdType
 	Map      Map
-	Units    map[UnitIdType]Unit
-	Players  map[PlayerIdType]Player
+	Units    []Unit
+	Players  []Player
 }
 
 type AddUnitAction = GenericAction[Unit]
@@ -64,38 +64,6 @@ type MoveStepPayload struct {
 }
 
 type MoveStopAction = GenericAction[UnitIdType]
-
-func CreateAction(actionType ActionType) (any, error) {
-	switch actionType {
-	case PlayerInitActionType:
-		return PlayerInitAction{
-			Type: actionType,
-		}, nil
-
-	case PlayerInitSuccessActionType:
-		return PlayerInitSuccessAction{
-			Type: actionType,
-		}, nil
-
-	case AddUnitActionType:
-		return AddUnitAction{
-			Type: actionType,
-		}, nil
-
-	case MoveStepActionType:
-		return MoveStepAction{
-			Type: actionType,
-		}, nil
-
-	case MoveStopActionType:
-		return MoveStopAction{
-			Type: actionType,
-		}, nil
-
-	default:
-		return nil, errors.New("action type unrecognized")
-	}
-}
 
 func UnmarshalAction(bytes []byte) (Action, error) {
 	var msg GenericAction[any]
@@ -149,13 +117,3 @@ func UnmarshalAction(bytes []byte) (Action, error) {
 		return nil, errors.New("action type unrecognized")
 	}
 }
-
-/* func Convert(a any) Action[any] {
-	switch action := a.(type) {
-	case Action[~]:
-	}
-	return Action[any]{
-		Type: a.Type,
-		Payload: a.Payload,
-	}
-} */
