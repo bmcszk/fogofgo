@@ -9,17 +9,17 @@ import (
 )
 
 type Client struct {
-	ws         *websocket.Conn
-	Connected  bool
-	Dispatch game.DispatchFunc
-	PlayerId   game.PlayerIdType
+	ws        *websocket.Conn
+	Connected bool
+	Dispatch  game.DispatchFunc
+	PlayerId  game.PlayerIdType
 }
 
 func NewClient(ws *websocket.Conn, dispatch game.DispatchFunc) *Client {
 	c := &Client{
-		ws:         ws,
-		Connected:  true,
-		Dispatch: dispatch,
+		ws:        ws,
+		Connected: true,
+		Dispatch:  dispatch,
 	}
 	return c
 }

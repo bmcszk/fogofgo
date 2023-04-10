@@ -68,10 +68,12 @@ func (g *Game) handleAddUnitAction(action game.AddUnitAction) {
 
 func (g *Game) handlePlayerInitSuccessAction(action game.PlayerInitSuccessAction) {
 	g.SetMap(&action.Payload.Map)
-	for _, unit := range action.Payload.Units {
+	for _, u := range action.Payload.Units {
+		unit := u
 		g.SetUnit(&unit)
 	}
-	for _, player := range action.Payload.Players {
+	for _, p := range action.Payload.Players {
+		player := p
 		g.SetPlayer(&player)
 	}
 }

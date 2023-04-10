@@ -54,7 +54,7 @@ func main() {
 	defer ws.Close()
 
 	actions := make(chan game.Action, 10)
-	dispatch := func(a game.Action) {actions <- a}
+	dispatch := func(a game.Action) { actions <- a }
 
 	client := comm.NewClient(ws, dispatch)
 	client.PlayerId = playerId

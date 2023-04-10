@@ -13,7 +13,7 @@ import (
 var upgrader = websocket.Upgrader{}
 
 type Server struct {
-	game *Game
+	game    *Game
 	clients []*comm.Client
 }
 
@@ -53,7 +53,7 @@ func (s *Server) handleConnections(w http.ResponseWriter, r *http.Request) {
 	// Register our new client
 
 	actions := make(chan game.Action, 10)
-	dispatch := func(a game.Action) {actions <- a}
+	dispatch := func(a game.Action) { actions <- a }
 
 	client := comm.NewClient(ws, dispatch)
 	s.clients = append(s.clients, client)
