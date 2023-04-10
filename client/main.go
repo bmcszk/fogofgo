@@ -53,10 +53,13 @@ func main() {
 	}
 	defer ws.Close()
 
-	client := comm.NewClient(ws)
+	actions := make(chan game.Action, 10)
+	dispatch := func(a game.Action) {actions <- a}
+
+	client := comm.NewClient(ws, dispatch)
 	client.PlayerId = playerId
 
-	g := NewGame(client.Dispatch)
+	g := NewGame(dispatch)
 
 	go func(acts <-chan game.Action) {
 		for a := range acts {
@@ -64,7 +67,7 @@ func main() {
 				log.Println(err)
 			}
 		}
-	}(client.OutActions)
+	}(actions)
 
 	// Read messages from the server
 	go func() {
@@ -78,7 +81,7 @@ func main() {
 		}
 	}()
 
-	client.OutActions <- game.PlayerInitAction{
+	actions <- game.PlayerInitAction{
 		Type: game.PlayerInitActionType,
 		Payload: game.Player{
 			Id:    playerId,

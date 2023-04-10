@@ -10,16 +10,16 @@ import (
 
 type Client struct {
 	ws         *websocket.Conn
-	PlayerId   game.PlayerIdType
-	OutActions chan game.Action
 	Connected  bool
+	Dispatch game.DispatchFunc
+	PlayerId   game.PlayerIdType
 }
 
-func NewClient(ws *websocket.Conn) *Client {
+func NewClient(ws *websocket.Conn, dispatch game.DispatchFunc) *Client {
 	c := &Client{
 		ws:         ws,
-		OutActions: make(chan game.Action, 10),
 		Connected:  true,
+		Dispatch: dispatch,
 	}
 	return c
 }
@@ -46,12 +46,10 @@ func (c *Client) HandleInMessages() (game.Action, error) {
 	return action, nil
 }
 
-func (c *Client) Dispatch(action game.Action) {
-	log.Printf("player %s dispatch %s", c.PlayerId, action.GetType())
-	c.OutActions <- action
-}
-
 func (c *Client) Send(action game.Action) error {
+	if !c.Connected {
+		return nil
+	}
 	log.Printf("player %s send %s", c.PlayerId, action.GetType())
 	if err := c.ws.WriteJSON(action); err != nil {
 		return fmt.Errorf("write %w", err)

@@ -52,7 +52,10 @@ func (s *Server) handleConnections(w http.ResponseWriter, r *http.Request) {
 
 	// Register our new client
 
-	client := comm.NewClient(ws)
+	actions := make(chan game.Action, 10)
+	dispatch := func(a game.Action) {actions <- a}
+
+	client := comm.NewClient(ws, dispatch)
 	s.clients = append(s.clients, client)
 
 	go func(acts <-chan game.Action) {
@@ -61,7 +64,7 @@ func (s *Server) handleConnections(w http.ResponseWriter, r *http.Request) {
 				log.Println(err)
 			}
 		}
-	}(client.OutActions)
+	}(actions)
 
 	for client.Connected {
 		action, err := client.HandleInMessages()
@@ -72,13 +75,12 @@ func (s *Server) handleConnections(w http.ResponseWriter, r *http.Request) {
 		if action.GetType() == game.PlayerInitActionType {
 			client.PlayerId = action.GetPayload().(game.Player).Id
 		}
-		s.broadcast(client, action)
+		s.broadcast(client, action, dispatch)
 		s.game.HandleAction(action)
 	}
 }
 
-func (s *Server) broadcast(client *comm.Client, action game.Action) {
-	log.Printf("server broadcast %s", action.GetType())
+func (s *Server) broadcast(client *comm.Client, action game.Action, d func(game.Action)) {
 	for _, c := range s.clients {
 		if c != client {
 			c.Dispatch(action)
@@ -87,7 +89,6 @@ func (s *Server) broadcast(client *comm.Client, action game.Action) {
 }
 
 func (s *Server) dispatch(action game.Action) {
-	log.Printf("server dispatch %s", action.GetType())
 	for _, c := range s.clients {
 		c.Dispatch(action)
 	}
