@@ -70,9 +70,9 @@ func plan(path []PF, target PF) []PF {
 	return plan(path, target)
 }
 
-func (u *Unit) Update() error {
+func (u *Unit) Update() {
 	if len(u.Path) <= u.Step {
-		return nil
+		return
 	}
 	// Move the unit towards the target position
 	dx, dy := u.Path[u.Step].X-u.Position.X, u.Path[u.Step].Y-u.Position.Y
@@ -88,8 +88,6 @@ func (u *Unit) Update() error {
 		u.Velocity = NewPF(dx*UnitSpeed, dy*UnitSpeed)
 		u.Position = u.Position.Add(u.Velocity)
 	}
-
-	return nil
 }
 
 func (u *Unit) dispatchMove() {

@@ -59,7 +59,7 @@ func main() {
 	client := comm.NewClient(ws, dispatch)
 	client.PlayerId = playerId
 
-	g := NewGame(dispatch)
+	g := NewGame(playerId, dispatch)
 
 	go func(acts <-chan game.Action) {
 		for a := range acts {

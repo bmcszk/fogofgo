@@ -53,3 +53,8 @@ func (p PF) Ints() (int, int) {
 	p = p.Round()
 	return int(p.X), int(p.Y)
 }
+
+func (p PF) Dist(target PF) float64 {
+	dx, dy := target.X-p.X, target.Y-p.Y
+	return math.Sqrt(dx*dx + dy*dy)
+}

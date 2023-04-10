@@ -16,6 +16,7 @@ const (
 type Unit struct {
 	*game.Unit
 	ScreenPosition game.PF
+	visible        bool
 }
 
 func NewUnit(u *game.Unit) *Unit {
@@ -25,15 +26,16 @@ func NewUnit(u *game.Unit) *Unit {
 	}
 }
 
-func (u *Unit) Update() error {
-	if err := u.Unit.Update(); err != nil {
-		return err
-	}
+func (u *Unit) Update(playerUnits []*Unit) {
+	u.Unit.Update()
 	u.ScreenPosition = u.Position.Mul(tileSize)
-	return nil
+	u.visible = u.isVisibile(playerUnits)
 }
 
 func (u *Unit) Draw(screen *ebiten.Image, cameraX, cameraY int) {
+	if !u.visible {
+		return
+	}
 	u.ScreenPosition = u.Position.Mul(tileSize)
 	x := u.ScreenPosition.X - float64(cameraX)
 	y := u.ScreenPosition.Y - float64(cameraY)
@@ -52,3 +54,13 @@ func (u *Unit) GetRect() image.Rectangle {
 		Max: u.ScreenPosition.Add(u.Size).ImagePoint(),
 	}
 }
+
+func (u *Unit) isVisibile(playerUnits []*Unit) bool {
+	for _, pu := range playerUnits {
+		if u.Position.Dist(pu.Position) <= 5 {
+			return true
+		}
+	}
+	return false
+}
+
