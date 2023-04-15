@@ -7,6 +7,7 @@ import (
 
 	"github.com/bmcszk/gptrts/pkg/comm"
 	"github.com/bmcszk/gptrts/pkg/game"
+	"github.com/bmcszk/gptrts/pkg/world"
 	"github.com/gorilla/websocket"
 )
 
@@ -26,7 +27,7 @@ func NewServer() *Server {
 func main() {
 	server := NewServer()
 
-	g := NewGame(server.dispatch)
+	g := NewGame(server.dispatch, world.NewWorldService())
 
 	server.game = g
 
@@ -81,6 +82,10 @@ func (s *Server) handleConnections(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) broadcast(client *comm.Client, action game.Action, d func(game.Action)) {
+	switch action.(type) {
+	case game.PlayerInitAction, game.MapLoadAction:
+		return
+	}
 	for _, c := range s.clients {
 		if c != client {
 			c.Dispatch(action)
@@ -99,6 +104,10 @@ func (s *Server) route(c *comm.Client, action game.Action) error {
 	case game.MoveStartAction, game.MoveStepAction, game.MoveStopAction:
 		s.game.HandleAction(a)
 	case game.PlayerInitSuccessAction:
+		if a.Payload.PlayerId != c.PlayerId {
+			return nil
+		}
+	case game.MapLoadSuccessAction:
 		if a.Payload.PlayerId != c.PlayerId {
 			return nil
 		}

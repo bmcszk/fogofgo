@@ -63,4 +63,3 @@ func (u *Unit) isVisibile(playerUnits []*Unit) bool {
 	}
 	return false
 }
-

@@ -4,17 +4,20 @@ import (
 	"log"
 
 	"github.com/bmcszk/gptrts/pkg/game"
+	"github.com/bmcszk/gptrts/pkg/world"
 )
 
 type Game struct {
 	*game.Game
-	dispatch game.DispatchFunc
+	dispatch     game.DispatchFunc
+	worldService world.WorldService
 }
 
-func NewGame(dispatch game.DispatchFunc) *Game {
+func NewGame(dispatch game.DispatchFunc, worldService world.WorldService) *Game {
 	g := &Game{
-		Game:     game.NewGame(dispatch),
-		dispatch: dispatch,
+		Game:         game.NewGame(dispatch),
+		dispatch:     dispatch,
+		worldService: worldService,
 	}
 
 	return g
@@ -26,6 +29,8 @@ func (g *Game) HandleAction(action game.Action) {
 	switch a := action.(type) {
 	case game.PlayerInitAction:
 		g.handlePlayerInitAction(a)
+	case game.MapLoadAction:
+		g.handleMapLoadAction(a)
 	}
 }
 
@@ -65,4 +70,22 @@ func (g *Game) handlePlayerInitAction(action game.PlayerInitAction) {
 		Payload: *unit,
 	}
 	g.dispatch(unitAction)
+}
+
+func (g *Game) handleMapLoadAction(action game.MapLoadAction) {
+	resp, err := g.worldService.Load(action.Payload.WorldRequest)
+	if err != nil {
+		log.Printf("error loading map: %s", err)
+		return
+		// TODO: error handling
+		// TODO: send error to client
+	}
+	successAction := game.MapLoadSuccessAction{
+		Type: game.MapLoadSuccessActionType,
+		Payload: game.MapLoadSuccessPayload{
+			WorldResponse: *resp,
+			PlayerId:      action.Payload.PlayerId,
+		},
+	}
+	g.dispatch(successAction)
 }

@@ -2,6 +2,8 @@ package game
 
 import (
 	"errors"
+
+	"github.com/bmcszk/gptrts/pkg/world"
 )
 
 type TileType int
@@ -12,6 +14,7 @@ const (
 )
 
 type Tile struct {
+	*world.Tile
 	Type   TileType
 	UnitId UnitIdType
 }

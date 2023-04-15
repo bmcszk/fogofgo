@@ -16,3 +16,6 @@ vendor/
 
 # IDE
 .vscode/
+
+client/client
+server/server

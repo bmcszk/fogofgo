@@ -8,6 +8,7 @@ import (
 
 	"github.com/bmcszk/gptrts/pkg/convert"
 	"github.com/bmcszk/gptrts/pkg/game"
+	"github.com/bmcszk/gptrts/pkg/world"
 	"github.com/hajimehoshi/ebiten/v2"
 	"github.com/hajimehoshi/ebiten/v2/ebitenutil"
 )
@@ -78,6 +79,7 @@ func (g *Game) handlePlayerInitSuccessAction(action game.PlayerInitSuccessAction
 		player := p
 		g.SetPlayer(&player)
 	}
+	g.dispatchMapLoadAction()
 }
 
 func (g *Game) Layout(outsideWidth, outsideHeight int) (int, int) {
@@ -119,15 +121,19 @@ func (g *Game) Update() error {
 	// Move camera with arrow keys
 	if ebiten.IsKeyPressed(ebiten.KeyArrowLeft) {
 		g.cameraX -= cameraSpeed
+		g.dispatchMapLoadAction()
 	}
 	if ebiten.IsKeyPressed(ebiten.KeyArrowRight) {
 		g.cameraX += cameraSpeed
+		g.dispatchMapLoadAction()
 	}
 	if ebiten.IsKeyPressed(ebiten.KeyArrowUp) {
 		g.cameraY -= cameraSpeed
+		g.dispatchMapLoadAction()
 	}
 	if ebiten.IsKeyPressed(ebiten.KeyArrowDown) {
 		g.cameraY += cameraSpeed
+		g.dispatchMapLoadAction()
 	}
 
 	// Handle left mouse button click to select units
@@ -183,6 +189,22 @@ func (g *Game) Update() error {
 	}
 
 	return nil
+}
+
+func (g *Game) dispatchMapLoadAction() {
+	action := game.MapLoadAction{
+		Type: game.MapLoadActionType,
+		Payload: game.MapLoadPayload{
+			WorldRequest: world.WorldRequest{
+				X:      g.cameraX,
+				Y:      g.cameraY,
+				Width:  game.MapWidth,
+				Height: game.MapHeight,
+			},
+			PlayerId: g.PlayerId,
+		},
+	}
+	g.dispatch(action)
 }
 
 func (g *Game) screenToWorld(screenX, screenY int) (int, int) {

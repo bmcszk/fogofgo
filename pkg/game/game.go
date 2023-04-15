@@ -2,7 +2,6 @@ package game
 
 import (
 	"log"
-	"sync"
 )
 
 type DispatchFunc func(Action)
@@ -12,7 +11,6 @@ type Game struct {
 	Units    map[UnitIdType]*Unit
 	Players  map[PlayerIdType]*Player
 	Starting map[PF]*PlayerIdType
-	gameMux  *sync.Mutex
 	dispatch DispatchFunc
 }
 
@@ -22,7 +20,6 @@ func NewGame(dispatch DispatchFunc) *Game {
 		Units:    make(map[UnitIdType]*Unit),
 		Players:  make(map[PlayerIdType]*Player),
 		Starting: make(map[PF]*PlayerIdType),
-		gameMux:  &sync.Mutex{},
 		dispatch: dispatch,
 	}
 
@@ -56,6 +53,8 @@ func (g *Game) HandleAction(action Action) {
 		g.handleMoveStepAction(a)
 	case MoveStopAction:
 		g.handleMoveStopAction(a)
+	case MapLoadSuccessAction:
+		g.handleMapLoadSuccessAction(a)
 	}
 }
 
@@ -116,4 +115,9 @@ func (g *Game) handleMoveStopAction(action MoveStopAction) {
 	unit.Path = []PF{}
 	unit.Step = 0
 
+}
+
+func (g *Game) handleMapLoadSuccessAction(action MapLoadSuccessAction) {
+	// temporary
+	// TODO
 }

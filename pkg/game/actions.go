@@ -3,6 +3,8 @@ package game
 import (
 	"encoding/json"
 	"errors"
+
+	"github.com/bmcszk/gptrts/pkg/world"
 )
 
 type ActionType string
@@ -10,10 +12,12 @@ type ActionType string
 const (
 	PlayerInitActionType        ActionType = "PlayerInit"
 	PlayerInitSuccessActionType ActionType = "PlayerInitSuccess"
-	AddUnitActionType           ActionType = "AddUnitAction"
-	MoveStartActionType         ActionType = "MoveStartAction"
-	MoveStepActionType          ActionType = "MoveStepAction"
-	MoveStopActionType          ActionType = "MoveStopAction"
+	AddUnitActionType           ActionType = "AddUnit"
+	MoveStartActionType         ActionType = "MoveStart"
+	MoveStepActionType          ActionType = "MoveStep"
+	MoveStopActionType          ActionType = "MoveStop"
+	MapLoadActionType           ActionType = "MapLoad"
+	MapLoadSuccessActionType    ActionType = "MapLoadSuccess"
 )
 
 type Action interface {
@@ -65,6 +69,20 @@ type MoveStepPayload struct {
 
 type MoveStopAction = GenericAction[UnitIdType]
 
+type MapLoadAction = GenericAction[MapLoadPayload]
+
+type MapLoadPayload struct {
+	world.WorldRequest
+	PlayerId PlayerIdType
+}
+
+type MapLoadSuccessAction = GenericAction[MapLoadSuccessPayload]
+
+type MapLoadSuccessPayload struct {
+	world.WorldResponse
+	PlayerId PlayerIdType
+}
+
 func UnmarshalAction(bytes []byte) (Action, error) {
 	var msg GenericAction[any]
 	if err := json.Unmarshal(bytes, &msg); err != nil {
@@ -108,6 +126,20 @@ func UnmarshalAction(bytes []byte) (Action, error) {
 
 	case MoveStopActionType:
 		var action MoveStopAction
+		if err := json.Unmarshal(bytes, &action); err != nil {
+			return nil, err
+		}
+		return action, nil
+
+	case MapLoadActionType:
+		var action MapLoadAction
+		if err := json.Unmarshal(bytes, &action); err != nil {
+			return nil, err
+		}
+		return action, nil
+
+	case MapLoadSuccessActionType:
+		var action MapLoadSuccessAction
 		if err := json.Unmarshal(bytes, &action); err != nil {
 			return nil, err
 		}
