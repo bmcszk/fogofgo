@@ -5,6 +5,7 @@ import (
 	"image"
 	"image/color"
 	"log"
+	"sync"
 
 	"github.com/bmcszk/gptrts/pkg/game"
 	"github.com/bmcszk/gptrts/pkg/world"
@@ -23,13 +24,13 @@ type Tile struct {
 
 type Map struct {
 	*game.Map
-	Tiles map[game.PF]*Tile
+	tiles *sync.Map
 }
 
 func NewMap(gm *game.Map) *Map {
 	m := &Map{
 		Map:   gm,
-		Tiles: make(map[game.PF]*Tile, 1000),
+		tiles: &sync.Map{},
 	}
 	return m
 }
@@ -37,21 +38,28 @@ func NewMap(gm *game.Map) *Map {
 func (m *Map) SetTile(tile *world.Tile) {
 	p := game.NewPF(float64(tile.Point.X), float64(tile.Point.Y))
 	gt := m.Map.Tiles[p]
-	t, ok := m.Tiles[p]
+	t, ok := m.tiles.Load(p)
 	if ok {
-		t.Tile = gt
+		t.(*Tile).Tile = gt
 	}
-	m.Tiles[p] = &Tile{Tile: gt}
+	m.tiles.Store(p, &Tile{Tile: gt})
 }
 
-func (m *Map) Update(playerUnits []*Unit) {
-	for p, t := range m.Tiles {
-		t.visible = t.isVisible(p, playerUnits)
-	}
+func (m *Map) UpdateVisibility(unit *game.Unit) {
+	m.tiles.Range(func(k any, v any) bool {
+		p := k.(game.PF)
+		t := v.(*Tile)
+
+		t.visible = t.isVisible(p, unit)
+		return true
+	})
 }
 
 func (m *Map) Draw(screen *ebiten.Image, cameraX, cameraY int) {
-	for p, t := range m.Tiles {
+	m.tiles.Range(func(k any, v any) bool {
+		p := k.(game.PF)
+		t := v.(*Tile)
+
 		op := &ebiten.DrawImageOptions{}
 
 		if !t.visible {
@@ -69,10 +77,12 @@ func (m *Map) Draw(screen *ebiten.Image, cameraX, cameraY int) {
 		sy := (tileSpriteNo / tileXNum) * tileSize
 
 		screen.DrawImage(tilesImage.SubImage(image.Rect(sx, sy, sx+tileSize, sy+tileSize)).(*ebiten.Image), op)
-	}
+
+		return true
+	})
 }
 
-func (t *Tile) isVisible(p game.PF, playerUnits []*Unit) bool {
+func (t *Tile) isVisible(p game.PF, playerUnits ...*game.Unit) bool {
 	for _, u := range playerUnits {
 		if p.Dist(u.Position) <= 5 {
 			return true

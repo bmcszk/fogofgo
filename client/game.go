@@ -4,6 +4,7 @@ import (
 	"image"
 	"image/color"
 	"log"
+	"sync"
 
 	"github.com/bmcszk/gptrts/pkg/convert"
 	"github.com/bmcszk/gptrts/pkg/game"
@@ -13,7 +14,6 @@ import (
 )
 
 const (
-
 	cameraSpeed = 2
 )
 
@@ -25,6 +25,7 @@ type Game struct {
 	cameraX, cameraY int
 	selectionBox     *image.Rectangle
 	dispatch         game.DispatchFunc
+	mux              *sync.Mutex
 }
 
 func NewGame(playerId game.PlayerIdType, dispatch game.DispatchFunc) *Game {
@@ -35,7 +36,9 @@ func NewGame(playerId game.PlayerIdType, dispatch game.DispatchFunc) *Game {
 		Map:      NewMap(g.Map),
 		Units:    make(map[game.UnitIdType]*Unit),
 		dispatch: dispatch,
+		mux:      &sync.Mutex{},
 	}
+
 	return cg
 }
 
@@ -47,6 +50,10 @@ func (g *Game) SetMap(m *game.Map) {
 func (g *Game) SetUnit(unit *game.Unit) {
 	g.Game.SetUnit(unit)
 	g.Units[unit.Id] = NewUnit(unit)
+	g.Map.UpdateVisibility(unit)
+	for _, u := range g.Units {
+		u.UpdateVisibility(unit)
+	}
 }
 
 func (g *Game) SetPlayer(player *game.Player) {
@@ -54,6 +61,9 @@ func (g *Game) SetPlayer(player *game.Player) {
 }
 
 func (g *Game) HandleAction(action game.Action) {
+	g.mux.Lock()
+	defer g.mux.Unlock()
+
 	log.Printf("client handle %s", action.GetType())
 	g.Game.HandleAction(action)
 	switch a := action.(type) {
@@ -63,6 +73,8 @@ func (g *Game) HandleAction(action game.Action) {
 		g.handlePlayerInitSuccessAction(a)
 	case game.MapLoadSuccessAction:
 		g.handleMapLoadSuccessAction(a)
+	case game.MoveStepAction:
+		g.handleMoveStepAction(a)
 	}
 }
 
@@ -88,6 +100,14 @@ func (g *Game) handleMapLoadSuccessAction(action game.MapLoadSuccessAction) {
 			tile := t
 			g.Map.SetTile(&tile)
 		}
+	}
+}
+
+func (g *Game) handleMoveStepAction(action game.MoveStepAction) {
+	unit := g.Game.Units[action.Payload.UnitId]
+	g.Map.UpdateVisibility(unit)
+	for _, u := range g.Units {
+		u.UpdateVisibility(unit)
 	}
 }
 
@@ -190,12 +210,8 @@ func (g *Game) Update() error {
 		}
 	}
 
-	playerUnits := g.getPlayerUnits()
-
-	g.Map.Update(playerUnits)
-
 	for _, u := range g.Units {
-		u.Update(playerUnits)
+		u.Update()
 	}
 
 	return nil
@@ -227,14 +243,4 @@ func (g *Game) worldToScreen(worldX, worldY int) (int, int) {
 	screenX := worldX - g.cameraX
 	screenY := worldY - g.cameraY
 	return screenX, screenY
-}
-
-func (g *Game) getPlayerUnits() []*Unit {
-	r := make([]*Unit, 0)
-	for _, u := range g.Units {
-		if u.Owner == g.PlayerId {
-			r = append(r, u)
-		}
-	}
-	return r
 }

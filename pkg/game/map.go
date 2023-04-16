@@ -22,7 +22,7 @@ func NewMap() *Map {
 
 func (m *Map) GetTilesByUnitId(unitId UnitIdType) []*Tile {
 	result := make([]*Tile, 0)
-	for _, t := range  m.Tiles {
+	for _, t := range m.Tiles {
 		if t.UnitId == unitId {
 			result = append(result, t)
 		}

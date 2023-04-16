@@ -2,6 +2,7 @@ package game
 
 import (
 	"log"
+	"sync"
 )
 
 type DispatchFunc func(Action)
@@ -12,6 +13,7 @@ type Game struct {
 	Players  map[PlayerIdType]*Player
 	Starting map[PF]*PlayerIdType
 	dispatch DispatchFunc
+	mux      *sync.Mutex
 }
 
 func NewGame(dispatch DispatchFunc) *Game {
@@ -21,6 +23,7 @@ func NewGame(dispatch DispatchFunc) *Game {
 		Players:  make(map[PlayerIdType]*Player),
 		Starting: make(map[PF]*PlayerIdType),
 		dispatch: dispatch,
+		mux:      &sync.Mutex{},
 	}
 
 	g.Starting[PF{1, 1}] = nil
@@ -44,6 +47,9 @@ func (g *Game) SetPlayer(player *Player) {
 }
 
 func (g *Game) HandleAction(action Action) {
+	g.mux.Lock()
+	defer g.mux.Unlock()
+
 	switch a := action.(type) {
 	case AddUnitAction:
 		g.handleAddUnitAction(a)

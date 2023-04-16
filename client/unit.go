@@ -26,10 +26,13 @@ func NewUnit(u *game.Unit) *Unit {
 	}
 }
 
-func (u *Unit) Update(playerUnits []*Unit) {
+func (u *Unit) Update() {
 	u.Unit.Update()
 	u.ScreenPosition = u.Position.Mul(tileSize)
-	u.visible = u.isVisibile(playerUnits)
+}
+
+func (u *Unit) UpdateVisibility(unit *game.Unit) {
+	u.visible = u.isVisibile(unit)
 }
 
 func (u *Unit) Draw(screen *ebiten.Image, cameraX, cameraY int) {
@@ -55,7 +58,7 @@ func (u *Unit) GetRect() image.Rectangle {
 	}
 }
 
-func (u *Unit) isVisibile(playerUnits []*Unit) bool {
+func (u *Unit) isVisibile(playerUnits ...*game.Unit) bool {
 	for _, pu := range playerUnits {
 		if u.Position.Dist(pu.Position) <= 5 {
 			return true

@@ -2,6 +2,7 @@ package main
 
 import (
 	"log"
+	"sync"
 
 	"github.com/bmcszk/gptrts/pkg/game"
 	"github.com/bmcszk/gptrts/pkg/world"
@@ -11,6 +12,7 @@ type Game struct {
 	*game.Game
 	dispatch     game.DispatchFunc
 	worldService world.WorldService
+	mux          *sync.Mutex
 }
 
 func NewGame(dispatch game.DispatchFunc, worldService world.WorldService) *Game {
@@ -18,12 +20,15 @@ func NewGame(dispatch game.DispatchFunc, worldService world.WorldService) *Game 
 		Game:         game.NewGame(dispatch),
 		dispatch:     dispatch,
 		worldService: worldService,
+		mux:          &sync.Mutex{},
 	}
 
 	return g
 }
 
 func (g *Game) HandleAction(action game.Action) {
+	g.mux.Lock()
+	defer g.mux.Unlock()
 	log.Printf("server handle %s", action.GetType())
 	g.Game.HandleAction(action)
 	switch a := action.(type) {
