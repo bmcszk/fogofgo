@@ -6,53 +6,25 @@ import (
 	"github.com/bmcszk/gptrts/pkg/world"
 )
 
-type TileType int
-
-const (
-	Grass TileType = iota
-	Dirt
-)
-
 type Tile struct {
 	*world.Tile
-	Type   TileType
 	UnitId UnitIdType
 }
 
-const (
-	MapWidth  = 20
-	MapHeight = 20
-)
-
 type Map struct {
-	Width  int
-	Height int
-	Tiles  [][]*Tile
+	Tiles map[PF]*Tile
 }
 
 func NewMap() *Map {
-	m := &Map{Tiles: make([][]*Tile, MapWidth), Width: MapWidth, Height: MapHeight}
-	for x := 0; x < MapWidth; x++ {
-		m.Tiles[x] = make([]*Tile, MapHeight)
-		for y := 0; y < MapHeight; y++ {
-			if x > 10 && x < 15 && y > 10 && y < 15 {
-				m.Tiles[x][y] = &Tile{Type: Dirt}
-			} else {
-				m.Tiles[x][y] = &Tile{Type: Grass}
-			}
-		}
-	}
+	m := &Map{Tiles: make(map[PF]*Tile, 2000)}
 	return m
 }
 
 func (m *Map) GetTilesByUnitId(unitId UnitIdType) []*Tile {
 	result := make([]*Tile, 0)
-	for x := 0; x < MapWidth; x++ {
-		for y := 0; y < MapHeight; y++ {
-			tile := m.Tiles[x][y]
-			if tile.UnitId == unitId {
-				result = append(result, tile)
-			}
+	for _, t := range  m.Tiles {
+		if t.UnitId == unitId {
+			result = append(result, t)
 		}
 	}
 	return result
@@ -63,24 +35,27 @@ func (m *Map) PlaceUnit(unit *Unit, positions ...PF) error {
 		positions = []PF{unit.Position}
 	}
 	for _, p := range positions {
-		x, y := p.Ints()
-		tile, err := m.GetTile(x, y)
-		if err != nil {
-			return err
+		t, ok := m.Tiles[p]
+		if !ok {
+			m.Tiles[p] = &Tile{UnitId: unit.Id}
+			return nil
 		}
+
 		//set position
-		if tile.UnitId != ZeroUnitId && tile.UnitId != unit.Id {
+		if t.UnitId != ZeroUnitId && t.UnitId != unit.Id {
 			return errors.New("position")
 		}
-		tile.UnitId = unit.Id
+		t.UnitId = unit.Id
 	}
 
 	return nil
 }
 
-func (m *Map) GetTile(x, y int) (*Tile, error) {
-	if x >= MapWidth || y >= MapHeight {
-		return nil, errors.New("out of bounds")
+func (m *Map) SetTile(tile *world.Tile) {
+	p := NewPF(float64(tile.Point.X), float64(tile.Point.Y))
+	t, ok := m.Tiles[p]
+	if ok {
+		t.Tile = tile
 	}
-	return m.Tiles[x][y], nil
+	m.Tiles[p] = &Tile{Tile: tile}
 }

@@ -118,6 +118,10 @@ func (g *Game) handleMoveStopAction(action MoveStopAction) {
 }
 
 func (g *Game) handleMapLoadSuccessAction(action MapLoadSuccessAction) {
-	// temporary
-	// TODO
+	for _, row := range action.Payload.Rows {
+		for _, t := range row {
+			tile := t
+			g.Map.SetTile(&tile)
+		}
+	}
 }

@@ -4,7 +4,6 @@ import (
 	"image"
 	"image/color"
 	"log"
-	"math"
 
 	"github.com/bmcszk/gptrts/pkg/convert"
 	"github.com/bmcszk/gptrts/pkg/game"
@@ -29,14 +28,15 @@ type Game struct {
 }
 
 func NewGame(playerId game.PlayerIdType, dispatch game.DispatchFunc) *Game {
-	g := &Game{
+	g := game.NewGame(dispatch)
+	cg := &Game{
 		PlayerId: playerId,
-		Game:     game.NewGame(dispatch),
-		Map:      NewMap(game.NewMap()),
+		Game:     g,
+		Map:      NewMap(g.Map),
 		Units:    make(map[game.UnitIdType]*Unit),
 		dispatch: dispatch,
 	}
-	return g
+	return cg
 }
 
 func (g *Game) SetMap(m *game.Map) {
@@ -61,6 +61,8 @@ func (g *Game) HandleAction(action game.Action) {
 		g.handleAddUnitAction(a)
 	case game.PlayerInitSuccessAction:
 		g.handlePlayerInitSuccessAction(a)
+	case game.MapLoadSuccessAction:
+		g.handleMapLoadSuccessAction(a)
 	}
 }
 
@@ -80,8 +82,17 @@ func (g *Game) handlePlayerInitSuccessAction(action game.PlayerInitSuccessAction
 	g.dispatchMapLoadAction()
 }
 
+func (g *Game) handleMapLoadSuccessAction(action game.MapLoadSuccessAction) {
+	for _, row := range action.Payload.Rows {
+		for _, t := range row {
+			tile := t
+			g.Map.SetTile(&tile)
+		}
+	}
+}
+
 func (g *Game) Layout(outsideWidth, outsideHeight int) (int, int) {
-	// Calculate the desired screen size based on the size of the map
+	/* // Calculate the desired screen size based on the size of the map
 	sw := len(g.Map.Tiles[0]) * tileSize
 	sh := len(g.Map.Tiles) * tileSize
 
@@ -92,7 +103,8 @@ func (g *Game) Layout(outsideWidth, outsideHeight int) (int, int) {
 		sh = int(float64(sh) * scale)
 	}
 
-	return sw, sh
+	return sw, sh */
+	return outsideWidth, outsideHeight
 }
 
 func (g *Game) Draw(screen *ebiten.Image) {
@@ -196,8 +208,8 @@ func (g *Game) dispatchMapLoadAction() {
 			WorldRequest: world.WorldRequest{
 				X:      g.cameraX,
 				Y:      g.cameraY,
-				Width:  game.MapWidth,
-				Height: game.MapHeight,
+				Width:  100,
+				Height: 100,
 			},
 			PlayerId: g.PlayerId,
 		},
