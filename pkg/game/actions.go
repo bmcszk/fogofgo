@@ -44,7 +44,6 @@ type PlayerInitSuccessAction = GenericAction[PlayerInitSuccessPayload]
 
 type PlayerInitSuccessPayload struct {
 	PlayerId PlayerIdType
-	Map      Map
 	Units    []Unit
 	Players  []Player
 }

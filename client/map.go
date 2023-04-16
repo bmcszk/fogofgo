@@ -1,8 +1,18 @@
 package main
 
 import (
+	"encoding/hex"
+	"image"
+	"image/color"
+	"log"
+
 	"github.com/bmcszk/gptrts/pkg/game"
 	"github.com/hajimehoshi/ebiten/v2"
+)
+
+const (
+	tileSize = 16
+	tileXNum = 7
 )
 
 type Tile struct {
@@ -50,13 +60,6 @@ func (m *Map) Update(playerUnits []*Unit) {
 func (m *Map) Draw(screen *ebiten.Image, cameraX, cameraY int) {
 	for x := range m.Tiles {
 		for y, tile := range m.Tiles[x] {
-			var img *ebiten.Image
-			switch tile.Type {
-			case game.Grass:
-				img = grassImage
-			case game.Dirt:
-				img = dirtImage
-			}
 			op := &ebiten.DrawImageOptions{}
 
 			if !tile.visible {
@@ -67,7 +70,13 @@ func (m *Map) Draw(screen *ebiten.Image, cameraX, cameraY int) {
 			}
 
 			op.GeoM.Translate(float64(x*tileSize-cameraX), float64(y*tileSize-cameraY))
-			screen.DrawImage(img, op)
+			screen.DrawImage(getBackgroundColorImage(tile.BackStyleClass), op)
+
+			t := getTile(tile.FrontStyleClass)
+			sx := (t % tileXNum) * tileSize
+			sy := (t / tileXNum) * tileSize
+
+			screen.DrawImage(tilesImage.SubImage(image.Rect(sx, sy, sx+tileSize, sy+tileSize)).(*ebiten.Image), op)
 		}
 	}
 }
@@ -80,4 +89,73 @@ func (t *Tile) isVisible(playerUnits []*Unit) bool {
 		}
 	}
 	return false
+}
+
+func getBackgroundColorImage(className string) *ebiten.Image {
+	img, exists := backgroundImages[className]
+	if exists {
+		return img
+	}
+	switch className {
+	case "grass":
+		img = ebiten.NewImage(tileSize, tileSize)
+		img.Fill(getColorFromHex("74CF45FF"))
+	case "water":
+		img = ebiten.NewImage(tileSize, tileSize)
+		img.Fill(getColorFromHex("68A8C8FF"))
+	case "sand":
+		img = ebiten.NewImage(tileSize, tileSize)
+		img.Fill(getColorFromHex("BA936BFF"))
+	default:
+		img = ebiten.NewImage(tileSize, tileSize)
+		img.Fill(getColorFromHex("74CF45FF"))
+	}
+	backgroundImages[className] = img
+	return img
+}
+
+func getColorFromHex(colorStr string) color.Color {
+	b, err := hex.DecodeString(colorStr)
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	return color.RGBA{b[0], b[1], b[2], b[3]}
+}
+
+func getTile(className string) int {
+	switch className {
+	case "plain1":
+		return 0
+	case "plain2":
+		return 1
+	case "plain3":
+		return 2
+	case "forest1":
+		return 3
+	case "forest2":
+		return 4
+	case "forest3":
+		return 5
+	case "sea1", "sea2", "sea3", "river1", "river2", "river3":
+		return 99
+	case "mountain1":
+		return 10
+	case "mountain2":
+		return 11
+	case "mountain3":
+		return 12
+	case "hill1", "hill2", "hill3":
+		return 13
+	case "lake1":
+		return 18
+	case "lake2":
+		return 19
+	case "lake3":
+		return 20
+	case "sand1", "sand2", "sand3":
+		return 78
+	default:
+		return 0
+	}
 }

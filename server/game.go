@@ -42,7 +42,6 @@ func (g *Game) handlePlayerInitAction(action game.PlayerInitAction) {
 		Type: game.PlayerInitSuccessActionType,
 		Payload: game.PlayerInitSuccessPayload{
 			PlayerId: player.Id,
-			Map:      *g.Map,
 			Units:    make([]game.Unit, 0),
 			Players:  make([]game.Player, 0),
 		},

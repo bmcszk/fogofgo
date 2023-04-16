@@ -14,7 +14,6 @@ import (
 )
 
 const (
-	tileSize = 32
 
 	cameraSpeed = 2
 )
@@ -70,7 +69,6 @@ func (g *Game) handleAddUnitAction(action game.AddUnitAction) {
 }
 
 func (g *Game) handlePlayerInitSuccessAction(action game.PlayerInitSuccessAction) {
-	g.SetMap(&action.Payload.Map)
 	for _, u := range action.Payload.Units {
 		unit := u
 		g.SetUnit(&unit)

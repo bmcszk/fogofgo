@@ -4,6 +4,7 @@ import (
 	"crypto/md5"
 	"errors"
 	"fmt"
+	"image"
 	"image/color"
 	"log"
 	"math/rand"
@@ -16,7 +17,6 @@ import (
 	"github.com/google/uuid"
 	"github.com/gorilla/websocket"
 	"github.com/hajimehoshi/ebiten/v2"
-	"github.com/hajimehoshi/ebiten/v2/ebitenutil"
 )
 
 const (
@@ -25,20 +25,30 @@ const (
 )
 
 var (
-	grassImage, dirtImage *ebiten.Image
+	tilesImage       *ebiten.Image
+	backgroundImages map[string]*ebiten.Image = make(map[string]*ebiten.Image)
 )
 
 func init() {
-	var err error
-	grassImage, _, err = ebitenutil.NewImageFromFile("grass.png")
+	// Decode image from a byte slice instead of a file so that
+	// this example works in any working directory.
+	// If you want to use a file, there are some options:
+	// 1) Use os.Open and pass the file to the image decoder.
+	//    This is a very regular way, but doesn't work on browsers.
+	// 2) Use ebitenutil.OpenFile and pass the file to the image decoder.
+	//    This works even on browsers.
+	// 3) Use ebitenutil.NewImageFromFile to create an ebiten.Image directly from a file.
+	//    This also works on browsers.
+	file, err := os.Open("tiles1.png")
 	if err != nil {
-		log.Fatalf("Failed to load grass image: %v", err)
+		log.Fatal(err)
 	}
-
-	dirtImage, _, err = ebitenutil.NewImageFromFile("dirt.png")
+	img, _, err := image.Decode(file)
+	// img, _, err := image.Decode(bytes.NewReader(images.Tiles_png))
 	if err != nil {
-		log.Fatalf("Failed to load dirt image: %v", err)
+		log.Fatal(err)
 	}
+	tilesImage = ebiten.NewImageFromImage(img)
 }
 
 func main() {
