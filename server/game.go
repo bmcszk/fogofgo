@@ -77,6 +77,31 @@ func (g *Game) handlePlayerInitAction(action game.PlayerInitAction) {
 }
 
 func (g *Game) handleMapLoadAction(action game.MapLoadAction) {
+
+
+	 _, ok1 := g.Map.Tiles[game.NewPF(float64(action.Payload.MinX), float64(action.Payload.MinY))]
+	 _, ok2 := g.Map.Tiles[game.NewPF(float64(action.Payload.MaxX), float64(action.Payload.MaxY))]
+	 if ok1 && ok2 {
+		tiles := make([]world.Tile, 0)
+		for x := action.Payload.MinX; x <= action.Payload.MaxX; x++ {
+			for y := action.Payload.MinY; y <= action.Payload.MaxY; y++ {
+				t :=g.Map.Tiles[game.NewPF(float64(x), float64(y))]
+				tiles = append(tiles, *t.Tile)
+			}
+		}
+		successAction := game.MapLoadSuccessAction{
+			Type: game.MapLoadSuccessActionType,
+			Payload: game.MapLoadSuccessPayload{
+				WorldResponse: world.WorldResponse{Tiles: tiles},
+				PlayerId:      action.Payload.PlayerId,
+			},
+		}
+		g.dispatch(successAction)
+		return
+
+	 }
+
+
 	resp, err := g.worldService.Load(action.Payload.WorldRequest)
 	if err != nil {
 		log.Printf("error loading map: %s", err)

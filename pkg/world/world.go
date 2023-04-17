@@ -4,7 +4,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
-	"log"
 	"net/http"
 	"net/url"
 )
@@ -15,14 +14,15 @@ type WorldService struct {
 }
 
 type WorldRequest struct {
-	X, Y          int
-	Width, Height int
+	MinX, MinY, MaxX, MaxY int
 }
 
 type WorldResponse struct {
-	Width  int      `json:"width"`
-	Height int      `json:"height"`
-	Rows   [][]Tile `json:"rows"`
+	Tiles []Tile `json:"map"`
+	MinX  int    `json:"minX"`
+	MinY  int    `json:"minY"`
+	MaxX  int    `json:"maxX"`
+	MaxY  int    `json:"maxY"`
 }
 
 type Tile struct {
@@ -48,36 +48,16 @@ func NewWorldService() WorldService {
 	}
 }
 
-func (m WorldService) DeadSimpleLoad() *WorldResponse {
-	resp, err := m.client.Get(m.serverAddress + "/api/map?x=1&y=2&width=100&height=100")
-	if err != nil {
-		log.Fatal(err)
-	}
-	defer resp.Body.Close()
-	responseData, err := io.ReadAll(resp.Body)
-	if err != nil {
-		log.Fatal(err)
-	}
-
-	var response *WorldResponse
-	err = json.Unmarshal(responseData, &response)
-	if err != nil {
-		log.Fatal(err)
-	}
-	return response
-
-}
-
 func (m WorldService) Load(request WorldRequest) (*WorldResponse, error) {
-	u, err := url.Parse(m.serverAddress + "/api/map")
+	u, err := url.Parse(m.serverAddress + "/api/map/rect")
 	if err != nil {
 		return nil, err
 	}
 	q := u.Query()
-	q.Add("x", fmt.Sprintf("%d", request.X))
-	q.Add("y", fmt.Sprintf("%d", request.Y))
-	q.Add("width", fmt.Sprintf("%d", request.Width))
-	q.Add("height", fmt.Sprintf("%d", request.Height))
+	q.Add("minX", fmt.Sprintf("%d", request.MinX))
+	q.Add("minY", fmt.Sprintf("%d", request.MinY))
+	q.Add("maxX", fmt.Sprintf("%d", request.MaxX))
+	q.Add("maxY", fmt.Sprintf("%d", request.MaxY))
 	u.RawQuery = q.Encode()
 	resp, err := m.client.Get(u.String())
 	if err != nil {

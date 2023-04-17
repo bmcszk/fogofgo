@@ -8,7 +8,6 @@ import (
 
 	"github.com/bmcszk/gptrts/pkg/convert"
 	"github.com/bmcszk/gptrts/pkg/game"
-	"github.com/bmcszk/gptrts/pkg/world"
 	"github.com/hajimehoshi/ebiten/v2"
 	"github.com/hajimehoshi/ebiten/v2/ebitenutil"
 )
@@ -23,6 +22,7 @@ type Game struct {
 	Units            map[game.UnitIdType]*Unit
 	PlayerId         game.PlayerIdType
 	cameraX, cameraY int
+	centerX, centerY int
 	selectionBox     *image.Rectangle
 	dispatch         game.DispatchFunc
 	mux              *sync.Mutex
@@ -91,15 +91,12 @@ func (g *Game) handlePlayerInitSuccessAction(action game.PlayerInitSuccessAction
 		player := p
 		g.SetPlayer(&player)
 	}
-	g.dispatchMapLoadAction()
 }
 
 func (g *Game) handleMapLoadSuccessAction(action game.MapLoadSuccessAction) {
-	for _, row := range action.Payload.Rows {
-		for _, t := range row {
-			tile := t
-			g.Map.SetTile(&tile)
-		}
+	for _, t := range action.Payload.Tiles {
+		tile := t
+		g.Map.SetTile(&tile)
 	}
 }
 
@@ -124,16 +121,25 @@ func (g *Game) Layout(outsideWidth, outsideHeight int) (int, int) {
 	}
 
 	return sw, sh */
+
+	// g.centerX = -outsideWidth /2
+	// g.centerY = -outsideHeight /2
+
+	minX, minY := g.screenToWorldTiles(0, 0)
+	maxX, maxY := g.screenToWorldTiles(outsideWidth, outsideHeight)
+
+	g.SetVisibleTiles(minX, minY, maxX, maxY)
+
 	return outsideWidth, outsideHeight
 }
 
 func (g *Game) Draw(screen *ebiten.Image) {
 	// Draw the map
-	g.Map.Draw(screen, g.cameraX, g.cameraY)
+	g.Map.Draw(screen, g.centerX+g.cameraX, g.centerY+g.cameraY)
 
 	// Draw units
 	for _, unit := range g.Units {
-		unit.Draw(screen, g.cameraX, g.cameraY)
+		unit.Draw(screen, g.centerX+g.cameraX, g.centerY+g.cameraY)
 	}
 
 	// Draw the selection box
@@ -151,19 +157,15 @@ func (g *Game) Update() error {
 	// Move camera with arrow keys
 	if ebiten.IsKeyPressed(ebiten.KeyArrowLeft) {
 		g.cameraX -= cameraSpeed
-		g.dispatchMapLoadAction()
 	}
 	if ebiten.IsKeyPressed(ebiten.KeyArrowRight) {
 		g.cameraX += cameraSpeed
-		g.dispatchMapLoadAction()
 	}
 	if ebiten.IsKeyPressed(ebiten.KeyArrowUp) {
 		g.cameraY -= cameraSpeed
-		g.dispatchMapLoadAction()
 	}
 	if ebiten.IsKeyPressed(ebiten.KeyArrowDown) {
 		g.cameraY += cameraSpeed
-		g.dispatchMapLoadAction()
 	}
 
 	// Handle left mouse button click to select units
@@ -194,8 +196,7 @@ func (g *Game) Update() error {
 	// Handle right mouse button click to move selected units
 	if ebiten.IsMouseButtonPressed(ebiten.MouseButtonRight) && ebiten.IsFocused() {
 		mx, my := ebiten.CursorPosition()
-		worldX, worldY := g.screenToWorld(mx, my)
-		tileX, tileY := worldX/tileSize, worldY/tileSize
+		tileX, tileY := g.screenToWorldTiles(mx, my)
 		for _, u := range g.Units {
 			if u.Selected && u.Unit.Owner == g.PlayerId {
 				moveStartAction := game.MoveStartAction{
@@ -217,26 +218,16 @@ func (g *Game) Update() error {
 	return nil
 }
 
-func (g *Game) dispatchMapLoadAction() {
-	action := game.MapLoadAction{
-		Type: game.MapLoadActionType,
-		Payload: game.MapLoadPayload{
-			WorldRequest: world.WorldRequest{
-				X:      g.cameraX,
-				Y:      g.cameraY,
-				Width:  100,
-				Height: 100,
-			},
-			PlayerId: g.PlayerId,
-		},
-	}
-	g.dispatch(action)
-}
-
 func (g *Game) screenToWorld(screenX, screenY int) (int, int) {
 	worldX := screenX + g.cameraX
 	worldY := screenY + g.cameraY
 	return worldX, worldY
+}
+
+func (g *Game) screenToWorldTiles(screenX, screenY int) (int, int) {
+	tileX := (screenX + g.cameraX) / tileSize
+	tileY := (screenY + g.cameraY) / tileSize
+	return tileX, tileY
 }
 
 func (g *Game) worldToScreen(worldX, worldY int) (int, int) {

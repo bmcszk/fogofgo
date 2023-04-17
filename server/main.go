@@ -102,7 +102,7 @@ func (s *Server) dispatch(action game.Action) {
 func (s *Server) route(c *comm.Client, action game.Action) error {
 	switch a := action.(type) {
 	case game.MoveStartAction, game.MoveStepAction, game.MoveStopAction:
-		s.game.HandleAction(a)
+		s.game.HandleAction(a) // TODO kurwa
 	case game.PlayerInitSuccessAction:
 		if a.Payload.PlayerId != c.PlayerId {
 			return nil
@@ -111,6 +111,7 @@ func (s *Server) route(c *comm.Client, action game.Action) error {
 		if a.Payload.PlayerId != c.PlayerId {
 			return nil
 		}
+		s.game.HandleAction(a)
 	}
 
 	if err := c.Send(action); err != nil {

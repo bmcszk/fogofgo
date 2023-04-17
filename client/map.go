@@ -24,7 +24,8 @@ type Tile struct {
 
 type Map struct {
 	*game.Map
-	tiles *sync.Map
+	tiles                  *sync.Map
+	minX, minY, maxX, maxY int
 }
 
 func NewMap(gm *game.Map) *Map {
@@ -43,6 +44,74 @@ func (m *Map) SetTile(tile *world.Tile) {
 		t.(*Tile).Tile = gt
 	}
 	m.tiles.Store(p, &Tile{Tile: gt})
+}
+
+func (g *Game) SetVisibleTiles(minX, minY, maxX, maxY int) {
+	m := g.Map
+	if minX < m.minX {
+		action := game.MapLoadAction{
+			Type: game.MapLoadActionType,
+			Payload: game.MapLoadPayload{
+				WorldRequest: world.WorldRequest{
+					MinX: minX,
+					MinY: minY,
+					MaxX: m.minX,
+					MaxY: m.maxY,
+				},
+				PlayerId: g.PlayerId,
+			},
+		}
+		g.dispatch(action)
+		m.minX = minX
+	}
+	if minY < m.minY {
+		action := game.MapLoadAction{
+			Type: game.MapLoadActionType,
+			Payload: game.MapLoadPayload{
+				WorldRequest: world.WorldRequest{
+					MinX: minX,
+					MinY: minY,
+					MaxX: m.maxX,
+					MaxY: m.minY,
+				},
+				PlayerId: g.PlayerId,
+			},
+		}
+		g.dispatch(action)
+		m.minY = minY
+	}
+	if maxX > m.maxX {
+		action := game.MapLoadAction{
+			Type: game.MapLoadActionType,
+			Payload: game.MapLoadPayload{
+				WorldRequest: world.WorldRequest{
+					MinX: m.minX,
+					MinY: m.maxY,
+					MaxX: maxX,
+					MaxY: maxY,
+				},
+				PlayerId: g.PlayerId,
+			},
+		}
+		g.dispatch(action)
+		m.maxX = maxX
+	}
+	if maxY > m.maxY {
+		action := game.MapLoadAction{
+			Type: game.MapLoadActionType,
+			Payload: game.MapLoadPayload{
+				WorldRequest: world.WorldRequest{
+					MinX: m.maxY,
+					MinY: m.minY,
+					MaxX: maxX,
+					MaxY: maxY,
+				},
+				PlayerId: g.PlayerId,
+			},
+		}
+		g.dispatch(action)
+		m.maxY = maxY
+	}
 }
 
 func (m *Map) UpdateVisibility(unit *game.Unit) {
