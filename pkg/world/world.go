@@ -3,6 +3,7 @@ package world
 import (
 	"encoding/json"
 	"fmt"
+	"image"
 	"io"
 	"net/http"
 	"net/url"
@@ -26,19 +27,14 @@ type WorldResponse struct {
 }
 
 type Tile struct {
-	Point           Point  `json:"point"`
-	Value           string `json:"value"`
-	LandType        string `json:"landType"`
-	FrontStyleClass string `json:"frontStyleClass"`
-	BackStyleClass  string `json:"backStyleClass"`
-	GroundLevel     int    `json:"groundLevel"`
-	WaterLevel      *int   `json:"waterLevel"`
-	PostGlacial     bool   `json:"postGlacial"`
-}
-
-type Point struct {
-	X int `json:"x"`
-	Y int `json:"y"`
+	Point           image.Point `json:"point"`
+	Value           string      `json:"value"`
+	LandType        string      `json:"landType"`
+	FrontStyleClass string      `json:"frontStyleClass"`
+	BackStyleClass  string      `json:"backStyleClass"`
+	GroundLevel     int         `json:"groundLevel"`
+	WaterLevel      *int        `json:"waterLevel"`
+	PostGlacial     bool        `json:"postGlacial"`
 }
 
 func NewWorldService() WorldService {
@@ -75,5 +71,4 @@ func (m WorldService) Load(request WorldRequest) (*WorldResponse, error) {
 		return nil, err
 	}
 	return response, nil
-
 }

@@ -2,6 +2,7 @@ package game
 
 import (
 	"errors"
+	"image"
 
 	"github.com/bmcszk/gptrts/pkg/world"
 )
@@ -12,11 +13,11 @@ type Tile struct {
 }
 
 type Map struct {
-	Tiles map[PF]*Tile
+	Tiles map[image.Point]*Tile
 }
 
 func NewMap() *Map {
-	m := &Map{Tiles: make(map[PF]*Tile, 2000)}
+	m := &Map{Tiles: make(map[image.Point]*Tile, 2000)}
 	return m
 }
 
@@ -34,7 +35,8 @@ func (m *Map) PlaceUnit(unit *Unit, positions ...PF) error {
 	if len(positions) == 0 {
 		positions = []PF{unit.Position}
 	}
-	for _, p := range positions {
+	for _, pf := range positions {
+		p := pf.ImagePoint()
 		t, ok := m.Tiles[p]
 		if !ok {
 			m.Tiles[p] = &Tile{UnitId: unit.Id}
@@ -52,7 +54,7 @@ func (m *Map) PlaceUnit(unit *Unit, positions ...PF) error {
 }
 
 func (m *Map) SetTile(tile *world.Tile) {
-	p := NewPF(float64(tile.Point.X), float64(tile.Point.Y))
+	p := tile.Point
 	t, ok := m.Tiles[p]
 	if ok {
 		t.Tile = tile

@@ -3,6 +3,7 @@ package game
 import (
 	"encoding/json"
 	"errors"
+	"image"
 
 	"github.com/bmcszk/gptrts/pkg/world"
 )
@@ -69,6 +70,21 @@ type MoveStepPayload struct {
 type MoveStopAction = GenericAction[UnitIdType]
 
 type MapLoadAction = GenericAction[MapLoadPayload]
+
+func NewMapLoadAction(rect image.Rectangle, playerId PlayerIdType) MapLoadAction {
+	return MapLoadAction{
+		Type: MapLoadActionType,
+		Payload: MapLoadPayload{
+			WorldRequest: world.WorldRequest{
+				MinX: rect.Min.X,
+				MinY: rect.Min.Y,
+				MaxX: rect.Max.X,
+				MaxY: rect.Max.Y,
+			},
+			PlayerId: playerId,
+		},
+	}
+}
 
 type MapLoadPayload struct {
 	world.WorldRequest

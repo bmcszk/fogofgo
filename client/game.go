@@ -26,6 +26,7 @@ type Game struct {
 	selectionBox     *image.Rectangle
 	dispatch         game.DispatchFunc
 	mux              *sync.Mutex
+	screen           *Screen
 }
 
 func NewGame(playerId game.PlayerIdType, dispatch game.DispatchFunc) *Game {
@@ -37,6 +38,7 @@ func NewGame(playerId game.PlayerIdType, dispatch game.DispatchFunc) *Game {
 		Units:    make(map[game.UnitIdType]*Unit),
 		dispatch: dispatch,
 		mux:      &sync.Mutex{},
+		screen:   NewScreen(),
 	}
 
 	return cg
@@ -98,6 +100,7 @@ func (g *Game) handleMapLoadSuccessAction(action game.MapLoadSuccessAction) {
 		tile := t
 		g.Map.SetTile(&tile)
 	}
+	g.loadMap()
 }
 
 func (g *Game) handleMoveStepAction(action game.MoveStepAction) {
@@ -127,15 +130,43 @@ func (g *Game) Layout(outsideWidth, outsideHeight int) (int, int) {
 
 	minX, minY := g.screenToWorldTiles(0, 0)
 	maxX, maxY := g.screenToWorldTiles(outsideWidth, outsideHeight)
+	rect := image.Rect(minX, minY, maxX, maxY)
 
-	g.SetVisibleTiles(minX, minY, maxX, maxY)
+	if g.SetScreen(rect) {
+		g.loadMap()
+	}
 
 	return outsideWidth, outsideHeight
 }
 
+func (g *Game) SetScreen(rect image.Rectangle) bool {
+	if g.screen.rect.Eq(rect) {
+		return false
+	}
+	currRect := g.screen.rect
+	if rect.Min.X < currRect.Min.X {
+		action := game.NewMapLoadAction(image.Rect(rect.Min.X, rect.Min.Y, currRect.Min.X, currRect.Max.Y), g.PlayerId)
+		g.dispatch(action)
+	}
+	if rect.Min.Y < currRect.Min.Y {
+		action := game.NewMapLoadAction(image.Rect(rect.Min.X, rect.Min.Y, currRect.Max.X, currRect.Min.Y), g.PlayerId)
+		g.dispatch(action)
+	}
+	if rect.Max.X > currRect.Max.X {
+		action := game.NewMapLoadAction(image.Rect(currRect.Min.X, currRect.Max.Y, rect.Max.X, rect.Max.Y), g.PlayerId)
+		g.dispatch(action)
+	}
+	if rect.Max.Y > currRect.Max.Y {
+		action := game.NewMapLoadAction(image.Rect(currRect.Max.Y, currRect.Min.Y, rect.Max.X, rect.Max.Y), g.PlayerId)
+		g.dispatch(action)
+	}
+	g.screen.rect = rect
+	return true
+}
+
 func (g *Game) Draw(screen *ebiten.Image) {
 	// Draw the map
-	g.Map.Draw(screen, g.centerX+g.cameraX, g.centerY+g.cameraY)
+	g.screen.Draw(screen, g.centerX+g.cameraX, g.centerY+g.cameraY)
 
 	// Draw units
 	for _, unit := range g.Units {
@@ -234,4 +265,15 @@ func (g *Game) worldToScreen(worldX, worldY int) (int, int) {
 	screenX := worldX - g.cameraX
 	screenY := worldY - g.cameraY
 	return screenX, screenY
+}
+
+func (g *Game) loadMap() {
+	g.screen.tiles = make([][]*Tile, 0, 100 /*optimize me*/)
+	for x := g.screen.rect.Min.X; x <= g.screen.rect.Max.X; x++ {
+		row := make([]*Tile, 0, 100 /*optimize me*/)
+		for y := g.screen.rect.Min.Y; y <= g.screen.rect.Max.Y; y++ {
+			row = append(row, g.Map.GetTile(image.Pt(x, y)))
+		}
+		g.screen.tiles = append(g.screen.tiles, row)
+	}
 }

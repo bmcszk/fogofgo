@@ -16,6 +16,10 @@ func NewPF(x, y float64) PF {
 	}
 }
 
+func FromImagePoint(p image.Point) PF {
+	return NewPF(float64(p.X), float64(p.Y))
+}
+
 func (p PF) ImagePoint() image.Point {
 	return image.Pt(int(p.X), int(p.Y))
 }
