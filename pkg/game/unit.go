@@ -1,6 +1,7 @@
 package game
 
 import (
+	"image"
 	"image/color"
 	"math"
 
@@ -12,6 +13,22 @@ const (
 )
 
 var ZeroUnitId = UnitIdType{uuid.Nil}
+
+const defaultSight = 5
+
+var defaultISee []image.Point
+
+func init() {
+	defaultISee = make([]image.Point, 0, defaultSight)
+	for x := -5; x <= 5; x++ {
+		for y := -5; y <= 5; y++ {
+			p := image.Pt(x, y)
+			if Dist(p, ZeroPoint) <= defaultSight {
+				defaultISee = append(defaultISee, image.Pt(x, y))
+			}
+		}
+	}
+}
 
 type UnitIdType struct {
 	uuid.UUID
@@ -28,6 +45,7 @@ type Unit struct {
 	Path     []PF
 	Step     int
 	dispatch DispatchFunc `json:"-"`
+	ISee     []image.Point
 }
 
 func NewUnit(owner PlayerIdType, c color.RGBA, position PF, width, height int) *Unit {
@@ -37,6 +55,7 @@ func NewUnit(owner PlayerIdType, c color.RGBA, position PF, width, height int) *
 		Color:    c,
 		Position: position,
 		Size:     NewPF(float64(width), float64(height)),
+		ISee:     defaultISee,
 	}
 }
 
@@ -82,7 +101,7 @@ func (u *Unit) Update() {
 		u.Velocity = NewPF(0, 0)
 		u.Position = u.Path[u.Step]
 		u.Step = u.Step + 1
-		u.dispatchMove()
+		u.dispatchStep()
 	} else {
 		dx, dy = dx/dist, dy/dist
 		u.Velocity = NewPF(dx*UnitSpeed, dy*UnitSpeed)
@@ -90,7 +109,7 @@ func (u *Unit) Update() {
 	}
 }
 
-func (u *Unit) dispatchMove() {
+func (u *Unit) dispatchStep() {
 	moveAction := MoveStepAction{
 		Type: MoveStepActionType,
 		Payload: MoveStepPayload{

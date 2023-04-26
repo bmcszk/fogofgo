@@ -42,7 +42,9 @@ func (g *Game) HandleAction(action game.Action) {
 
 func (g *Game) handlePlayerInitAction(action game.PlayerInitAction) {
 	player := &action.Payload
-	g.Game.Players[action.Payload.Id] = player
+	id := player.Id
+	_, existing := g.Game.Players[id]
+	g.Game.Players[id] = player
 
 	successAction := game.PlayerInitSuccessAction{
 		Type: game.PlayerInitSuccessActionType,
@@ -60,6 +62,11 @@ func (g *Game) handlePlayerInitAction(action game.PlayerInitAction) {
 	}
 	g.dispatch(successAction)
 
+	// unit spawn only for new player
+	if existing {
+		return
+	}
+
 	var startingP game.PF
 	for sp, p := range g.Starting {
 		if p == nil {
@@ -68,10 +75,10 @@ func (g *Game) handlePlayerInitAction(action game.PlayerInitAction) {
 			break
 		}
 	}
-	unit := game.NewUnit(action.Payload.Id, player.Color, startingP, 32, 32)
+	unit := game.NewUnit(action.Payload.Id, player.Color, startingP, 16, 16)
 	g.Units[unit.Id] = unit // should it driven by action?
-	unitAction := game.AddUnitAction{
-		Type:    game.AddUnitActionType,
+	unitAction := game.SpawnUnitAction{
+		Type:    game.SpawnUnitActionType,
 		Payload: *unit,
 	}
 	g.dispatch(unitAction)

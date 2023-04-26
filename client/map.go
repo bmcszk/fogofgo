@@ -46,24 +46,13 @@ func (m *Map) GetTile(p image.Point) *Tile {
 	if ok {
 		return t.(*Tile)
 	}
-	return nil
-}
-
-func (m *Map) UpdateVisibility(unit *game.Unit) {
-	m.tiles.Range(func(k any, v any) bool {
-		p := k.(image.Point)
-		t := v.(*Tile)
-
-		t.visible = t.isVisible(p, unit)
-		return true
-	})
-}
-
-func (t *Tile) isVisible(p image.Point, playerUnits ...*game.Unit) bool {
-	for _, u := range playerUnits {
-		if u.Position.Dist(game.FromImagePoint(p)) <= 5 {
-			return true
-		}
+	tile := &Tile{
+		Tile: &game.Tile{
+			Tile: &world.Tile{
+				Point: p,
+			},
+		},
 	}
-	return false
+	m.tiles.Store(p, tile)
+	return tile
 }

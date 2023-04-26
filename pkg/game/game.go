@@ -39,6 +39,9 @@ func (g *Game) SetMap(m *Map) {
 
 func (g *Game) SetUnit(unit *Unit) {
 	g.Units[unit.Id] = unit
+	if err := g.Map.PlaceUnit(unit); err != nil {
+		log.Println(err)
+	}
 	unit.dispatch = g.dispatch
 }
 
@@ -51,8 +54,8 @@ func (g *Game) HandleAction(action Action) {
 	defer g.mux.Unlock()
 
 	switch a := action.(type) {
-	case AddUnitAction:
-		g.handleAddUnitAction(a)
+	case SpawnUnitAction:
+		g.handleSpawnUnitAction(a)
 	case MoveStartAction:
 		g.handleMoveStartAction(a)
 	case MoveStepAction:
@@ -64,7 +67,7 @@ func (g *Game) HandleAction(action Action) {
 	}
 }
 
-func (g *Game) handleAddUnitAction(action AddUnitAction) {
+func (g *Game) handleSpawnUnitAction(action SpawnUnitAction) {
 	unit := &action.Payload
 	g.Units[action.Payload.Id] = unit
 	if err := g.Map.PlaceUnit(unit); err != nil {

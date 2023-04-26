@@ -13,7 +13,7 @@ type ActionType string
 const (
 	PlayerInitActionType        ActionType = "PlayerInit"
 	PlayerInitSuccessActionType ActionType = "PlayerInitSuccess"
-	AddUnitActionType           ActionType = "AddUnit"
+	SpawnUnitActionType         ActionType = "SpawnUnit"
 	MoveStartActionType         ActionType = "MoveStart"
 	MoveStepActionType          ActionType = "MoveStep"
 	MoveStopActionType          ActionType = "MoveStop"
@@ -49,7 +49,7 @@ type PlayerInitSuccessPayload struct {
 	Players  []Player
 }
 
-type AddUnitAction = GenericAction[Unit]
+type SpawnUnitAction = GenericAction[Unit]
 
 type MoveStartAction = GenericAction[MoveStartPayload]
 
@@ -118,8 +118,8 @@ func UnmarshalAction(bytes []byte) (Action, error) {
 		}
 		return action, nil
 
-	case AddUnitActionType:
-		var action AddUnitAction
+	case SpawnUnitActionType:
+		var action SpawnUnitAction
 		if err := json.Unmarshal(bytes, &action); err != nil {
 			return nil, err
 		}

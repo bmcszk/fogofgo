@@ -31,10 +31,6 @@ func (u *Unit) Update() {
 	u.ScreenPosition = u.Position.Mul(tileSize)
 }
 
-func (u *Unit) UpdateVisibility(unit *game.Unit) {
-	u.visible = u.isVisibile(unit)
-}
-
 func (u *Unit) Draw(screen *ebiten.Image, cameraX, cameraY int) {
 	if !u.visible {
 		return
@@ -56,13 +52,4 @@ func (u *Unit) GetRect() image.Rectangle {
 		Min: u.ScreenPosition.ImagePoint(),
 		Max: u.ScreenPosition.Add(u.Size).ImagePoint(),
 	}
-}
-
-func (u *Unit) isVisibile(playerUnits ...*game.Unit) bool {
-	for _, pu := range playerUnits {
-		if u.Position.Dist(pu.Position) <= 5 {
-			return true
-		}
-	}
-	return false
 }

@@ -5,6 +5,8 @@ import (
 	"math"
 )
 
+var ZeroPoint = image.Pt(0, 0)
+
 type PF struct {
 	X float64
 	Y float64
@@ -60,5 +62,10 @@ func (p PF) Ints() (int, int) {
 
 func (p PF) Dist(target PF) float64 {
 	dx, dy := target.X-p.X, target.Y-p.Y
+	return math.Sqrt(dx*dx + dy*dy)
+}
+
+func Dist(p1 image.Point, p2 image.Point) float64 {
+	dx, dy := float64(p2.X-p1.X), float64(p2.Y-p1.Y)
 	return math.Sqrt(dx*dx + dy*dy)
 }

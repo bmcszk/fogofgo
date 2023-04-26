@@ -51,11 +51,19 @@ func (g *Game) SetMap(m *game.Map) {
 
 func (g *Game) SetUnit(unit *game.Unit) {
 	g.Game.SetUnit(unit)
-	g.Units[unit.Id] = NewUnit(unit)
-	g.Map.UpdateVisibility(unit)
+	clientUnit := NewUnit(unit)
+	g.Units[unit.Id] = clientUnit
+	g.updateVisibility()
+}
+
+func (g *Game) getPlayerUnits() []*Unit {
+	r := make([]*Unit, 0)
 	for _, u := range g.Units {
-		u.UpdateVisibility(unit)
+		if u.Owner == g.PlayerId {
+			r = append(r, u)
+		}
 	}
+	return r
 }
 
 func (g *Game) SetPlayer(player *game.Player) {
@@ -69,8 +77,8 @@ func (g *Game) HandleAction(action game.Action) {
 	log.Printf("client handle %s", action.GetType())
 	g.Game.HandleAction(action)
 	switch a := action.(type) {
-	case game.AddUnitAction:
-		g.handleAddUnitAction(a)
+	case game.SpawnUnitAction:
+		g.handleSpawnUnitAction(a)
 	case game.PlayerInitSuccessAction:
 		g.handlePlayerInitSuccessAction(a)
 	case game.MapLoadSuccessAction:
@@ -80,7 +88,7 @@ func (g *Game) HandleAction(action game.Action) {
 	}
 }
 
-func (g *Game) handleAddUnitAction(action game.AddUnitAction) {
+func (g *Game) handleSpawnUnitAction(action game.SpawnUnitAction) {
 	g.SetUnit(&action.Payload)
 }
 
@@ -101,14 +109,11 @@ func (g *Game) handleMapLoadSuccessAction(action game.MapLoadSuccessAction) {
 		g.Map.SetTile(&tile)
 	}
 	g.loadMap()
+	g.updateVisibility()
 }
 
 func (g *Game) handleMoveStepAction(action game.MoveStepAction) {
-	unit := g.Game.Units[action.Payload.UnitId]
-	g.Map.UpdateVisibility(unit)
-	for _, u := range g.Units {
-		u.UpdateVisibility(unit)
-	}
+	g.updateVisibility()
 }
 
 func (g *Game) Layout(outsideWidth, outsideHeight int) (int, int) {
@@ -247,6 +252,28 @@ func (g *Game) Update() error {
 	}
 
 	return nil
+}
+
+func (g *Game) updateVisibility() {
+	g.Map.tiles.Range(func(_ any, v any) bool {
+		t := v.(*Tile)
+		t.visible = false
+		if t.UnitId != game.ZeroUnitId {
+			g.Units[t.UnitId].visible = false
+		}
+		return true
+	})
+	for _, unit := range g.getPlayerUnits() {
+		unit.visible = true
+		for _, vector := range unit.ISee {
+			p := unit.Position.ImagePoint().Add(vector)
+			t := g.Map.GetTile(p)
+			t.visible = true
+			if t.UnitId != game.ZeroUnitId {
+				g.Units[t.UnitId].visible = true
+			}
+		}
+	}
 }
 
 func (g *Game) screenToWorld(screenX, screenY int) (int, int) {
