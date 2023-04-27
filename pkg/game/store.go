@@ -9,12 +9,8 @@ import (
 type Store interface {
 	StoreUnit(unit Unit)
 	GetUnitById(id UnitIdType) *Unit
-
 	StorePlayer(player Player)
-
 	GetTilesByUnitId(id UnitIdType) []*Tile
-
 	StoreTile(tile world.Tile) *Tile
-
 	GetTile(image.Point) *Tile
 }

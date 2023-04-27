@@ -70,10 +70,7 @@ func (s *clientStore) GetTile(point image.Point) (tile *game.Tile) {
 	if t, ok := s.tiles[point]; ok {
 		return t.Tile
 	}
-	tile = &game.Tile{
-		Tile: &world.Tile{
-			Point: point,
-		},
-	}
-	return s.StoreTile(*tile.Tile)
+	return s.StoreTile(world.Tile{
+		Point: point,
+	})
 }
