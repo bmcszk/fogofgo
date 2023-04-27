@@ -12,7 +12,7 @@ const (
 	UnitSpeed = 0.1
 )
 
-var ZeroUnitId = UnitIdType{uuid.Nil}
+var ZeroUnitId = UnitIdType(uuid.Nil)
 
 const defaultSight = 5
 
@@ -30,19 +30,17 @@ func init() {
 	}
 }
 
-type UnitIdType struct {
-	uuid.UUID
-}
+type UnitIdType uuid.UUID
 
 type Unit struct {
 	Id       UnitIdType
 	Owner    PlayerIdType
 	Color    color.RGBA
 	Position PF
-	Size     PF
+	Size     image.Point
 	Selected bool
 	Velocity PF `json:"-"`
-	Path     []PF
+	Path     []image.Point
 	Step     int
 	dispatch DispatchFunc `json:"-"`
 	ISee     []image.Point
@@ -54,20 +52,20 @@ func NewUnit(owner PlayerIdType, c color.RGBA, position PF, width, height int) *
 		Owner:    owner,
 		Color:    c,
 		Position: position,
-		Size:     NewPF(float64(width), float64(height)),
+		Size:     image.Pt(width, height),
 		ISee:     defaultISee,
 	}
 }
 
 func NewUnitId() UnitIdType {
-	return UnitIdType{uuid.New()}
+	return UnitIdType(uuid.New())
 }
 
-func (u *Unit) MoveTo(target PF) {
+func (u *Unit) MoveTo(target image.Point) {
 	if len(u.Path) > 0 && target == u.Path[len(u.Path)-1] {
 		return
 	}
-	path := []PF{u.Position}
+	path := []image.Point{u.Position.ImagePoint()}
 	path = plan(path, target)
 	u.Path = path
 	u.Step = 0
@@ -79,12 +77,12 @@ func (u *Unit) Set(unit Unit) {
 	u.Path = unit.Path
 }
 
-func plan(path []PF, target PF) []PF {
+func plan(path []image.Point, target image.Point) []image.Point {
 	prevStep := path[len(path)-1]
 	if prevStep == target {
 		return path
 	}
-	nextStep := prevStep.Step(target)
+	nextStep := NextStep(prevStep, target)
 	path = append(path, nextStep)
 	return plan(path, target)
 }
@@ -94,12 +92,12 @@ func (u *Unit) Update() {
 		return
 	}
 	// Move the unit towards the target position
-	dx, dy := u.Path[u.Step].X-u.Position.X, u.Path[u.Step].Y-u.Position.Y
+	dx, dy := float64(u.Path[u.Step].X)-u.Position.X, float64(u.Path[u.Step].Y)-u.Position.Y
 	dist := math.Sqrt(dx*dx + dy*dy)
 
 	if dist < 0.1 {
 		u.Velocity = NewPF(0, 0)
-		u.Position = u.Path[u.Step]
+		u.Position = ToPF(u.Path[u.Step])
 		u.Step = u.Step + 1
 		u.dispatchStep()
 	} else {

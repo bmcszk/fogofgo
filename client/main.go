@@ -69,7 +69,7 @@ func main() {
 	client := comm.NewClient(ws, dispatch)
 	client.PlayerId = playerId
 
-	g := NewGame(playerId, dispatch)
+	g := NewGame(playerId, newClientStore(), dispatch)
 
 	go func(acts <-chan game.Action) {
 		for a := range acts {
@@ -102,7 +102,7 @@ func main() {
 
 	ebiten.SetWindowSize(screenWidth, screenHeight)
 	ebiten.SetWindowResizingMode(ebiten.WindowResizingModeEnabled)
-	ebiten.SetWindowTitle("RTS Game")
+	ebiten.SetWindowTitle(name)
 
 	if err := ebiten.RunGame(g); err != nil {
 		log.Fatal(err)
@@ -153,7 +153,7 @@ func getPlayerId(name string) game.PlayerIdType {
 	if err != nil {
 		log.Fatal(err)
 	}
-	return game.PlayerIdType{UUID: id}
+	return game.PlayerIdType(id)
 }
 
 func route(g *Game, c *comm.Client, action game.Action) error {

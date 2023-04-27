@@ -55,7 +55,7 @@ type MoveStartAction = GenericAction[MoveStartPayload]
 
 type MoveStartPayload struct {
 	UnitId UnitIdType
-	Point  PF
+	Point  image.Point
 }
 
 type MoveStepAction = GenericAction[MoveStepPayload]
@@ -63,7 +63,7 @@ type MoveStepAction = GenericAction[MoveStepPayload]
 type MoveStepPayload struct {
 	UnitId   UnitIdType
 	Position PF
-	Path     []PF
+	Path     []image.Point
 	Step     int
 }
 

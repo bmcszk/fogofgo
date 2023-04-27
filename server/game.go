@@ -11,18 +11,26 @@ import (
 
 type Game struct {
 	*game.Game
+	store        *serverStore
 	dispatch     game.DispatchFunc
 	worldService world.WorldService
 	mux          *sync.Mutex
+	starting     map[image.Point]*game.PlayerIdType
 }
 
-func NewGame(dispatch game.DispatchFunc, worldService world.WorldService) *Game {
+func NewGame(store *serverStore, dispatch game.DispatchFunc, worldService world.WorldService) *Game {
 	g := &Game{
-		Game:         game.NewGame(dispatch),
+		store:        store,
+		Game:         game.NewGame(store, dispatch),
 		dispatch:     dispatch,
 		worldService: worldService,
 		mux:          &sync.Mutex{},
+		starting:     make(map[image.Point]*game.PlayerIdType),
 	}
+	g.starting[image.Pt(1, 1)] = nil
+	g.starting[image.Pt(15, 1)] = nil
+	g.starting[image.Pt(1, 15)] = nil
+	g.starting[image.Pt(15, 15)] = nil
 
 	return g
 }
@@ -43,8 +51,8 @@ func (g *Game) HandleAction(action game.Action) {
 func (g *Game) handlePlayerInitAction(action game.PlayerInitAction) {
 	player := &action.Payload
 	id := player.Id
-	_, existing := g.Game.Players[id]
-	g.Game.Players[id] = player
+	_, existing := g.store.players[id]
+	g.store.players[id] = player
 
 	successAction := game.PlayerInitSuccessAction{
 		Type: game.PlayerInitSuccessActionType,
@@ -54,10 +62,10 @@ func (g *Game) handlePlayerInitAction(action game.PlayerInitAction) {
 			Players:  make([]game.Player, 0),
 		},
 	}
-	for _, unit := range g.Game.Units {
+	for _, unit := range g.store.units {
 		successAction.Payload.Units = append(successAction.Payload.Units, *unit)
 	}
-	for _, player := range g.Game.Players {
+	for _, player := range g.store.players {
 		successAction.Payload.Players = append(successAction.Payload.Players, *player)
 	}
 	g.dispatch(successAction)
@@ -67,16 +75,15 @@ func (g *Game) handlePlayerInitAction(action game.PlayerInitAction) {
 		return
 	}
 
-	var startingP game.PF
-	for sp, p := range g.Starting {
+	var startingP image.Point
+	for sp, p := range g.starting {
 		if p == nil {
 			startingP = sp
-			g.Starting[sp] = &player.Id
+			g.starting[sp] = &player.Id
 			break
 		}
 	}
-	unit := game.NewUnit(action.Payload.Id, player.Color, startingP, 16, 16)
-	g.Units[unit.Id] = unit // should it driven by action?
+	unit := game.NewUnit(action.Payload.Id, player.Color, game.ToPF(startingP), 16, 16)
 	unitAction := game.SpawnUnitAction{
 		Type:    game.SpawnUnitActionType,
 		Payload: *unit,
@@ -86,13 +93,13 @@ func (g *Game) handlePlayerInitAction(action game.PlayerInitAction) {
 
 func (g *Game) handleMapLoadAction(action game.MapLoadAction) {
 
-	_, ok1 := g.Map.Tiles[image.Pt(action.Payload.MinX, action.Payload.MinY)]
-	_, ok2 := g.Map.Tiles[image.Pt(action.Payload.MaxX, action.Payload.MaxY)]
+	_, ok1 := g.store.tiles[image.Pt(action.Payload.MinX, action.Payload.MinY)]
+	_, ok2 := g.store.tiles[image.Pt(action.Payload.MaxX, action.Payload.MaxY)]
 	if ok1 && ok2 {
 		tiles := make([]world.Tile, 0)
 		for x := action.Payload.MinX; x <= action.Payload.MaxX; x++ {
 			for y := action.Payload.MinY; y <= action.Payload.MaxY; y++ {
-				t, ok := g.Map.Tiles[image.Pt(x, y)]
+				t, ok := g.store.tiles[image.Pt(x, y)]
 				if !ok {
 					continue
 				}

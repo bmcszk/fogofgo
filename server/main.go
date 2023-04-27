@@ -27,7 +27,7 @@ func NewServer() *Server {
 func main() {
 	server := NewServer()
 
-	g := NewGame(server.dispatch, world.NewWorldService())
+	g := NewGame(newServerStore(), server.dispatch, world.NewWorldService())
 
 	server.game = g
 
@@ -101,21 +101,29 @@ func (s *Server) dispatch(action game.Action) {
 
 func (s *Server) route(c *comm.Client, action game.Action) error {
 	switch a := action.(type) {
-	case game.MoveStartAction, game.MoveStepAction, game.MoveStopAction:
-		s.game.HandleAction(a) // TODO kurwa
+	case game.MoveStartAction, game.MoveStepAction, game.MoveStopAction, game.SpawnUnitAction:
+		s.game.HandleAction(a)
+		if err := c.Send(action); err != nil {
+			return fmt.Errorf("route %w", err)
+		}
 	case game.PlayerInitSuccessAction:
-		if a.Payload.PlayerId != c.PlayerId {
-			return nil
+		if a.Payload.PlayerId == c.PlayerId {
+			if err := c.Send(action); err != nil {
+				return fmt.Errorf("route %w", err)
+			}
 		}
 	case game.MapLoadSuccessAction:
-		if a.Payload.PlayerId != c.PlayerId {
-			return nil
-		}
 		s.game.HandleAction(a)
+		if a.Payload.PlayerId == c.PlayerId {
+			if err := c.Send(action); err != nil {
+				return fmt.Errorf("route %w", err)
+			}
+		}
+	default:
+		if err := c.Send(action); err != nil {
+			return fmt.Errorf("route %w", err)
+		}
 	}
 
-	if err := c.Send(action); err != nil {
-		return fmt.Errorf("route %w", err)
-	}
 	return nil
 }

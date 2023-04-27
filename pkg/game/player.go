@@ -6,9 +6,7 @@ import (
 	"github.com/google/uuid"
 )
 
-type PlayerIdType struct {
-	uuid.UUID
-}
+type PlayerIdType uuid.UUID
 
 type Player struct {
 	Id    PlayerIdType
@@ -25,5 +23,5 @@ func NewPlayer(name string) *Player {
 }
 
 func NewPlayerId() PlayerIdType {
-	return PlayerIdType{uuid.New()}
+	return PlayerIdType(uuid.New())
 }

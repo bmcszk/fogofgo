@@ -41,15 +41,15 @@ func (u *Unit) Draw(screen *ebiten.Image, cameraX, cameraY int) {
 
 	if u.Selected {
 		col := color.RGBA{0, 255, 0, 255}
-		ebitenutil.DrawRect(screen, x-selectedBorder, y-selectedBorder, u.Size.X+(selectedBorder*2), u.Size.Y+(selectedBorder*2), col)
+		ebitenutil.DrawRect(screen, x-selectedBorder, y-selectedBorder, float64(u.Size.X+(selectedBorder*2)), float64(u.Size.Y+(selectedBorder*2)), col)
 	}
 
-	ebitenutil.DrawRect(screen, x, y, u.Size.X, u.Size.Y, u.Color)
+	ebitenutil.DrawRect(screen, x, y, float64(u.Size.X), float64(u.Size.Y), u.Color)
 }
 
 func (u *Unit) GetRect() image.Rectangle {
 	return image.Rectangle{
 		Min: u.ScreenPosition.ImagePoint(),
-		Max: u.ScreenPosition.Add(u.Size).ImagePoint(),
+		Max: u.ScreenPosition.Add(game.ToPF(u.Size)).ImagePoint(),
 	}
 }

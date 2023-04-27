@@ -18,8 +18,7 @@ const (
 
 type Game struct {
 	*game.Game
-	Map              *Map
-	Units            map[game.UnitIdType]*Unit
+	store            *clientStore
 	PlayerId         game.PlayerIdType
 	cameraX, cameraY int
 	centerX, centerY int
@@ -29,13 +28,12 @@ type Game struct {
 	screen           *Screen
 }
 
-func NewGame(playerId game.PlayerIdType, dispatch game.DispatchFunc) *Game {
-	g := game.NewGame(dispatch)
+func NewGame(playerId game.PlayerIdType, store *clientStore, dispatch game.DispatchFunc) *Game {
+	g := game.NewGame(store, dispatch)
 	cg := &Game{
+		store:    store,
 		PlayerId: playerId,
 		Game:     g,
-		Map:      NewMap(g.Map),
-		Units:    make(map[game.UnitIdType]*Unit),
 		dispatch: dispatch,
 		mux:      &sync.Mutex{},
 		screen:   NewScreen(),
@@ -44,76 +42,19 @@ func NewGame(playerId game.PlayerIdType, dispatch game.DispatchFunc) *Game {
 	return cg
 }
 
-func (g *Game) SetMap(m *game.Map) {
-	g.Game.SetMap(m)
-	g.Map = NewMap(m)
-}
-
-func (g *Game) SetUnit(unit *game.Unit) {
-	g.Game.SetUnit(unit)
-	clientUnit := NewUnit(unit)
-	g.Units[unit.Id] = clientUnit
-	g.updateVisibility()
-}
-
-func (g *Game) getPlayerUnits() []*Unit {
-	r := make([]*Unit, 0)
-	for _, u := range g.Units {
-		if u.Owner == g.PlayerId {
-			r = append(r, u)
-		}
-	}
-	return r
-}
-
-func (g *Game) SetPlayer(player *game.Player) {
-	g.Game.SetPlayer(player)
-}
-
 func (g *Game) HandleAction(action game.Action) {
 	g.mux.Lock()
 	defer g.mux.Unlock()
 
 	log.Printf("client handle %s", action.GetType())
 	g.Game.HandleAction(action)
-	switch a := action.(type) {
-	case game.SpawnUnitAction:
-		g.handleSpawnUnitAction(a)
-	case game.PlayerInitSuccessAction:
-		g.handlePlayerInitSuccessAction(a)
+	switch action.(type) {
+	case game.SpawnUnitAction, game.MoveStepAction, game.PlayerInitSuccessAction:
+		g.updateVisibility()
 	case game.MapLoadSuccessAction:
-		g.handleMapLoadSuccessAction(a)
-	case game.MoveStepAction:
-		g.handleMoveStepAction(a)
+		g.loadMap()
+		g.updateVisibility()
 	}
-}
-
-func (g *Game) handleSpawnUnitAction(action game.SpawnUnitAction) {
-	g.SetUnit(&action.Payload)
-}
-
-func (g *Game) handlePlayerInitSuccessAction(action game.PlayerInitSuccessAction) {
-	for _, u := range action.Payload.Units {
-		unit := u
-		g.SetUnit(&unit)
-	}
-	for _, p := range action.Payload.Players {
-		player := p
-		g.SetPlayer(&player)
-	}
-}
-
-func (g *Game) handleMapLoadSuccessAction(action game.MapLoadSuccessAction) {
-	for _, t := range action.Payload.Tiles {
-		tile := t
-		g.Map.SetTile(&tile)
-	}
-	g.loadMap()
-	g.updateVisibility()
-}
-
-func (g *Game) handleMoveStepAction(action game.MoveStepAction) {
-	g.updateVisibility()
 }
 
 func (g *Game) Layout(outsideWidth, outsideHeight int) (int, int) {
@@ -174,7 +115,7 @@ func (g *Game) Draw(screen *ebiten.Image) {
 	g.screen.Draw(screen, g.centerX+g.cameraX, g.centerY+g.cameraY)
 
 	// Draw units
-	for _, unit := range g.Units {
+	for _, unit := range g.store.units {
 		unit.Draw(screen, g.centerX+g.cameraX, g.centerY+g.cameraY)
 	}
 
@@ -220,7 +161,7 @@ func (g *Game) Update() error {
 
 	if g.selectionBox != nil {
 		r := *g.selectionBox
-		for _, u := range g.Units {
+		for _, u := range g.store.units {
 			if r.Canon().Overlaps(u.GetRect()) {
 				u.Selected = true
 			} else if !ebiten.IsKeyPressed(ebiten.KeyShift) {
@@ -233,13 +174,13 @@ func (g *Game) Update() error {
 	if ebiten.IsMouseButtonPressed(ebiten.MouseButtonRight) && ebiten.IsFocused() {
 		mx, my := ebiten.CursorPosition()
 		tileX, tileY := g.screenToWorldTiles(mx, my)
-		for _, u := range g.Units {
+		for _, u := range g.store.units {
 			if u.Selected && u.Unit.Owner == g.PlayerId {
 				moveStartAction := game.MoveStartAction{
 					Type: game.MoveStartActionType,
 					Payload: game.MoveStartPayload{
 						UnitId: u.Id,
-						Point:  game.NewPF(float64(tileX), float64(tileY)),
+						Point:  image.Pt(tileX, tileY),
 					},
 				}
 				g.dispatch(moveStartAction)
@@ -247,7 +188,7 @@ func (g *Game) Update() error {
 		}
 	}
 
-	for _, u := range g.Units {
+	for _, u := range g.store.units {
 		u.Update()
 	}
 
@@ -255,23 +196,26 @@ func (g *Game) Update() error {
 }
 
 func (g *Game) updateVisibility() {
-	g.Map.tiles.Range(func(_ any, v any) bool {
-		t := v.(*Tile)
+	for _, t := range g.store.tiles {
 		t.visible = false
 		if t.UnitId != game.ZeroUnitId {
-			g.Units[t.UnitId].visible = false
+			g.store.units[t.UnitId].visible = false
 		}
-		return true
-	})
-	for _, unit := range g.getPlayerUnits() {
+	}
+	for _, unit := range g.store.units {
+		if unit.Owner != g.PlayerId {
+			continue
+		}
 		unit.visible = true
 		for _, vector := range unit.ISee {
 			p := unit.Position.ImagePoint().Add(vector)
-			t := g.Map.GetTile(p)
-			t.visible = true
-			if t.UnitId != game.ZeroUnitId {
-				g.Units[t.UnitId].visible = true
+			if t, ok := g.store.tiles[p]; ok {
+				t.visible = true
+				if t.UnitId != game.ZeroUnitId && t.UnitId != unit.Id {
+					g.store.units[t.UnitId].visible = true
+				}
 			}
+
 		}
 	}
 }
@@ -299,7 +243,7 @@ func (g *Game) loadMap() {
 	for x := g.screen.rect.Min.X; x <= g.screen.rect.Max.X; x++ {
 		row := make([]*Tile, 0, 100 /*optimize me*/)
 		for y := g.screen.rect.Min.Y; y <= g.screen.rect.Max.Y; y++ {
-			row = append(row, g.Map.GetTile(image.Pt(x, y)))
+			row = append(row, g.store.tiles[image.Pt(x, y)])
 		}
 		g.screen.tiles = append(g.screen.tiles, row)
 	}

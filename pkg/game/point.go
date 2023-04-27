@@ -18,7 +18,7 @@ func NewPF(x, y float64) PF {
 	}
 }
 
-func FromImagePoint(p image.Point) PF {
+func ToPF(p image.Point) PF {
 	return NewPF(float64(p.X), float64(p.Y))
 }
 
@@ -68,4 +68,19 @@ func (p PF) Dist(target PF) float64 {
 func Dist(p1 image.Point, p2 image.Point) float64 {
 	dx, dy := float64(p2.X-p1.X), float64(p2.Y-p1.Y)
 	return math.Sqrt(dx*dx + dy*dy)
+}
+
+func NextStep(s image.Point, target image.Point) image.Point {
+	dx, dy := target.X-s.X, target.Y-s.Y
+	if dx > 0 {
+		dx = 1
+	} else if dx < 0 {
+		dx = -1
+	}
+	if dy > 0 {
+		dy = 1
+	} else if dy < 0 {
+		dy = -1
+	}
+	return image.Pt(s.X+dx, s.Y+dy)
 }
