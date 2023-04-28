@@ -37,22 +37,22 @@ func (g *Game) HandleAction(action game.Action, dispatch game.DispatchFunc) {
 	log.Printf("server handle %s", action.GetType())
 	g.Game.HandleAction(action, dispatch)
 	switch a := action.(type) {
-	case game.PlayerInitAction:
-		g.handlePlayerInitAction(a, dispatch)
+	case game.PlayerJoinAction:
+		g.handlePlayerJoinAction(a, dispatch)
 	case game.MapLoadAction:
 		g.handleMapLoadAction(a, dispatch)
 	}
 }
 
-func (g *Game) handlePlayerInitAction(action game.PlayerInitAction, dispatch game.DispatchFunc) {
+func (g *Game) handlePlayerJoinAction(action game.PlayerJoinAction, dispatch game.DispatchFunc) {
 	player := &action.Payload
 	id := player.Id
 	_, existing := g.store.players[id]
 	g.store.players[id] = player
 
-	successAction := game.PlayerInitSuccessAction{
-		Type: game.PlayerInitSuccessActionType,
-		Payload: game.PlayerInitSuccessPayload{
+	successAction := game.PlayerJoinSuccessAction{
+		Type: game.PlayerJoinSuccessActionType,
+		Payload: game.PlayerJoinSuccessPayload{
 			PlayerId: player.Id,
 			Units:    make([]game.Unit, 0),
 			Players:  make([]game.Player, 0),

@@ -20,8 +20,8 @@ func NewGame(store Store) *Game {
 
 func (g *Game) HandleAction(action Action, dispatch DispatchFunc) {
 	switch a := action.(type) {
-	case PlayerInitSuccessAction:
-		g.handlePlayerInitSuccessAction(a, dispatch)
+	case PlayerJoinSuccessAction:
+		g.handlePlayerJoinSuccessAction(a, dispatch)
 	case SpawnUnitAction:
 		g.handleSpawnUnitAction(a, dispatch)
 	case MoveStartAction:
@@ -35,7 +35,7 @@ func (g *Game) HandleAction(action Action, dispatch DispatchFunc) {
 	}
 }
 
-func (g *Game) handlePlayerInitSuccessAction(action PlayerInitSuccessAction, dispatch DispatchFunc) {
+func (g *Game) handlePlayerJoinSuccessAction(action PlayerJoinSuccessAction, dispatch DispatchFunc) {
 	for _, u := range action.Payload.Units {
 		unit := u
 		unit.dispatch = dispatch

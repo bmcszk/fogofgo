@@ -13,23 +13,23 @@ import (
 
 var upgrader = websocket.Upgrader{}
 
-type Server struct {
+type server struct {
 	game    *Game
 	clients map[game.PlayerIdType]*comm.Client
 }
 
-func NewServer(g *Game) *Server {
-	return &Server{
+func newServer(g *Game) *server {
+	return &server{
 		game:    g,
 		clients: make(map[game.PlayerIdType]*comm.Client, 0), // connected clients,
 	}
 }
 
 func main() {
-	server := NewServer(NewGame(newServerStore(), world.NewWorldService()))
+	s := newServer(NewGame(newServerStore(), world.NewWorldService()))
 
 	// Configure websocket route
-	http.HandleFunc("/ws", server.handleConnections)
+	http.HandleFunc("/ws", s.handleConnections)
 
 	// Start the server on localhost port 8000 and log any errors
 	log.Println("http server started on :8000")
@@ -39,7 +39,7 @@ func main() {
 	}
 }
 
-func (s *Server) handleConnections(w http.ResponseWriter, r *http.Request) {
+func (s *server) handleConnections(w http.ResponseWriter, r *http.Request) {
 	// Upgrade initial GET request to a websocket
 	ws, err := upgrader.Upgrade(w, r, nil)
 	if err != nil {
@@ -57,36 +57,34 @@ func (s *Server) handleConnections(w http.ResponseWriter, r *http.Request) {
 			log.Println(err)
 			continue
 		}
-		// register new player
-		if action.GetType() == game.PlayerInitActionType {
-			client.PlayerId = action.GetPayload().(game.Player).Id
-			s.clients[client.PlayerId] = client
-		}
-
-		// broadcast action to others
-		s.broadcastOthers(client, action)
-
-		// synchronous dispatch func
-		outActions := make([]game.Action, 0, 10)
-		dispatch := func(a game.Action) {
-			outActions = append(outActions, a)
-		}
-
-		// action handling
-		s.game.HandleAction(action, dispatch)
-
-		// routing output actions
-		for _, a := range outActions {
-			if err := s.route(client, a, dispatch); err != nil {
-				log.Println(err)
-			}
-		}
+		s.processAction(client, action)
 	}
 }
 
-func (s *Server) broadcastOthers(client *comm.Client, action game.Action) {
+func (s *server) processAction(client *comm.Client, action game.Action) {
+	// register new player
+	if action.GetType() == game.PlayerJoinActionType {
+		client.PlayerId = action.GetPayload().(game.Player).Id
+		s.clients[client.PlayerId] = client
+	}
+
+	// broadcast action to others
+	s.broadcastOthers(client, action)
+
+	// synchronous dispatch func
+	dispatch := func(a game.Action) {
+		if err := s.route(client, a); err != nil {
+			log.Println(err)
+		}
+	}
+
+	// action handling
+	s.game.HandleAction(action, dispatch)
+}
+
+func (s *server) broadcastOthers(client *comm.Client, action game.Action) {
 	switch action.(type) {
-	case game.PlayerInitAction, game.MapLoadAction:
+	case game.PlayerJoinAction, game.MapLoadAction:
 		return
 	}
 	for _, c := range s.clients {
@@ -99,7 +97,7 @@ func (s *Server) broadcastOthers(client *comm.Client, action game.Action) {
 	}
 }
 
-func (s *Server) broadcastAll(action game.Action) {
+func (s *server) broadcastAll(action game.Action) {
 	for _, c := range s.clients {
 		err := c.Send(action)
 		if err != nil {
@@ -108,20 +106,25 @@ func (s *Server) broadcastAll(action game.Action) {
 	}
 }
 
-func (s *Server) route(c *comm.Client, action game.Action, dispatch game.DispatchFunc) error {
+func (s *server) route(c *comm.Client, action game.Action) error {
+	dispatch := func(a game.Action) {
+		if err := s.route(c, a); err != nil {
+			log.Println(err)
+		}
+	}
 	switch a := action.(type) {
 	case game.MoveStepAction, game.MoveStopAction, game.SpawnUnitAction:
-		s.game.HandleAction(a, dispatch)
 		s.broadcastAll(a)
-	case game.PlayerInitSuccessAction:
+		s.game.HandleAction(a, dispatch)
+	case game.PlayerJoinSuccessAction:
 		if err := c.Send(action); err != nil {
 			return fmt.Errorf("route %w", err)
 		}
 	case game.MapLoadSuccessAction:
-		s.game.HandleAction(a, dispatch)
 		if err := c.Send(action); err != nil {
 			return fmt.Errorf("route %w", err)
 		}
+		s.game.HandleAction(a, dispatch)
 	default:
 		s.broadcastAll(a)
 	}

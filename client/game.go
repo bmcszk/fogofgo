@@ -16,6 +16,8 @@ const (
 	cameraSpeed = 2
 )
 
+type QueueFunc func(game.Action)
+
 type Game struct {
 	*game.Game
 	store            *clientStore
@@ -23,30 +25,30 @@ type Game struct {
 	cameraX, cameraY int
 	centerX, centerY int
 	selectionBox     *image.Rectangle
-	dispatch         game.DispatchFunc
+	queueFunc        QueueFunc
 	mux              *sync.Mutex
 	screen           *Screen
 }
 
-func NewGame(playerId game.PlayerIdType, store *clientStore, dispatch game.DispatchFunc) *Game {
+func NewGame(playerId game.PlayerIdType, store *clientStore, queueFunc QueueFunc) *Game {
 	g := game.NewGame(store)
 	cg := &Game{
-		store:    store,
-		PlayerId: playerId,
-		Game:     g,
-		dispatch: dispatch,
-		mux:      &sync.Mutex{},
-		screen:   NewScreen(),
+		store:     store,
+		PlayerId:  playerId,
+		Game:      g,
+		queueFunc: queueFunc,
+		mux:       &sync.Mutex{},
+		screen:    NewScreen(),
 	}
 
 	return cg
 }
 
-func (g *Game) HandleAction(action game.Action) {
+func (g *Game) HandleAction(action game.Action, dispatch game.DispatchFunc) {
 	log.Printf("client handle %s", action.GetType())
-	g.Game.HandleAction(action, g.dispatch)
+	g.Game.HandleAction(action, dispatch)
 	switch action.(type) {
-	case game.SpawnUnitAction, game.MoveStepAction, game.PlayerInitSuccessAction:
+	case game.SpawnUnitAction, game.MoveStepAction, game.PlayerJoinSuccessAction:
 		g.updateVisibility()
 	case game.MapLoadSuccessAction:
 		g.loadMap()
@@ -89,19 +91,19 @@ func (g *Game) SetScreen(rect image.Rectangle) bool {
 	currRect := g.screen.rect
 	if rect.Min.X < currRect.Min.X {
 		action := game.NewMapLoadAction(image.Rect(rect.Min.X, rect.Min.Y, currRect.Min.X, currRect.Max.Y), g.PlayerId)
-		g.dispatch(action)
+		g.queueFunc(action)
 	}
 	if rect.Min.Y < currRect.Min.Y {
 		action := game.NewMapLoadAction(image.Rect(rect.Min.X, rect.Min.Y, currRect.Max.X, currRect.Min.Y), g.PlayerId)
-		g.dispatch(action)
+		g.queueFunc(action)
 	}
 	if rect.Max.X > currRect.Max.X {
 		action := game.NewMapLoadAction(image.Rect(currRect.Min.X, currRect.Max.Y, rect.Max.X, rect.Max.Y), g.PlayerId)
-		g.dispatch(action)
+		g.queueFunc(action)
 	}
 	if rect.Max.Y > currRect.Max.Y {
 		action := game.NewMapLoadAction(image.Rect(currRect.Max.Y, currRect.Min.Y, rect.Max.X, rect.Max.Y), g.PlayerId)
-		g.dispatch(action)
+		g.queueFunc(action)
 	}
 	g.screen.rect = rect
 	return true
@@ -180,7 +182,7 @@ func (g *Game) Update() error {
 						Point:  image.Pt(tileX, tileY),
 					},
 				}
-				g.dispatch(moveStartAction)
+				g.queueFunc(moveStartAction)
 			}
 		}
 	}

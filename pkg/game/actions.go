@@ -11,8 +11,8 @@ import (
 type ActionType string
 
 const (
-	PlayerInitActionType        ActionType = "PlayerInit"
-	PlayerInitSuccessActionType ActionType = "PlayerInitSuccess"
+	PlayerJoinActionType        ActionType = "PlayerJoin"
+	PlayerJoinSuccessActionType ActionType = "PlayerJoinSuccess"
 	SpawnUnitActionType         ActionType = "SpawnUnit"
 	MoveStartActionType         ActionType = "MoveStart"
 	MoveStepActionType          ActionType = "MoveStep"
@@ -39,11 +39,11 @@ func (a GenericAction[T]) GetPayload() any {
 	return a.Payload
 }
 
-type PlayerInitAction = GenericAction[Player]
+type PlayerJoinAction = GenericAction[Player]
 
-type PlayerInitSuccessAction = GenericAction[PlayerInitSuccessPayload]
+type PlayerJoinSuccessAction = GenericAction[PlayerJoinSuccessPayload]
 
-type PlayerInitSuccessPayload struct {
+type PlayerJoinSuccessPayload struct {
 	PlayerId PlayerIdType
 	Units    []Unit
 	Players  []Player
@@ -104,15 +104,15 @@ func UnmarshalAction(bytes []byte) (Action, error) {
 		return nil, err
 	}
 	switch msg.Type {
-	case PlayerInitActionType:
-		var action PlayerInitAction
+	case PlayerJoinActionType:
+		var action PlayerJoinAction
 		if err := json.Unmarshal(bytes, &action); err != nil {
 			return nil, err
 		}
 		return action, nil
 
-	case PlayerInitSuccessActionType:
-		var action PlayerInitSuccessAction
+	case PlayerJoinSuccessActionType:
+		var action PlayerJoinSuccessAction
 		if err := json.Unmarshal(bytes, &action); err != nil {
 			return nil, err
 		}

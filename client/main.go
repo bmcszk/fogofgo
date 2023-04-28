@@ -3,7 +3,6 @@ package main
 import (
 	"crypto/md5"
 	"errors"
-	"fmt"
 	"image"
 	"image/color"
 	"log"
@@ -28,6 +27,20 @@ var (
 	tilesImage       *ebiten.Image
 	backgroundImages map[string]*ebiten.Image = make(map[string]*ebiten.Image)
 )
+
+type client struct {
+	*comm.Client
+	game *Game
+}
+
+func newClient(id game.PlayerIdType, ws *websocket.Conn) *client {
+	c := comm.NewClient(ws)
+	c.PlayerId = id
+
+	return &client{
+		Client: c,
+	}
+}
 
 func init() {
 	// Decode image from a byte slice instead of a file so that
@@ -63,44 +76,35 @@ func main() {
 	}
 	defer ws.Close()
 
-	outActions := make(chan game.Action, 10)
-	dispatch := func(a game.Action) { outActions <- a }
+	c := newClient(playerId, ws)
 
-	client := comm.NewClient(ws)
-	client.PlayerId = playerId
-
-	g := NewGame(playerId, newClientStore(), dispatch)
-
-	go func(acts <-chan game.Action) {
-		for a := range acts {
-			if err := route(g, client, a); err != nil {
-				log.Println(err)
-			}
-		}
-	}(outActions)
+	g := NewGame(playerId, newClientStore(), c.queue)
+	c.game = g
 
 	// Read messages from the server
 	go func() {
-		for client.Connected {
-			action, err := client.HandleInMessages()
+		for c.Connected {
+			action, err := c.HandleInMessages()
 			if err != nil {
 				log.Println(err)
 				continue
 			}
-
-			g.HandleAction(action)
+			g.HandleAction(action, c.route)
 		}
 	}()
 
-	outActions <- game.PlayerInitAction{
-		Type: game.PlayerInitActionType,
+	if err = c.Send(game.PlayerJoinAction{
+		Type: game.PlayerJoinActionType,
 		Payload: game.Player{
 			Id:    playerId,
 			Name:  name,
 			Color: nameToColor(name),
 		},
+	}); err != nil {
+		log.Println(err)
 	}
 
+	// start ebiten on main thread
 	ebiten.SetWindowSize(screenWidth, screenHeight)
 	ebiten.SetWindowResizingMode(ebiten.WindowResizingModeEnabled)
 	ebiten.SetWindowTitle(name)
@@ -157,14 +161,19 @@ func getPlayerId(name string) game.PlayerIdType {
 	return game.PlayerIdType(id)
 }
 
-func route(g *Game, c *comm.Client, action game.Action) error {
+func (c *client) queue(action game.Action) {
+	if err := c.Send(action); err != nil {
+		log.Println("route %w", err)
+	}
+	c.game.HandleAction(action, c.route)
+}
+
+func (c *client) route(action game.Action) {
+	if err := c.Send(action); err != nil {
+		log.Println("route %w", err)
+	}
 	switch a := action.(type) {
 	case game.MoveStartAction, game.MoveStepAction, game.MoveStopAction:
-		g.HandleAction(a)
+		c.game.HandleAction(a, c.route)
 	}
-
-	if err := c.Send(action); err != nil {
-		return fmt.Errorf("route %w", err)
-	}
-	return nil
 }
