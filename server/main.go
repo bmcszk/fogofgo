@@ -18,18 +18,15 @@ type Server struct {
 	clients map[game.PlayerIdType]*comm.Client
 }
 
-func NewServer() *Server {
+func NewServer(g *Game) *Server {
 	return &Server{
+		game:    g,
 		clients: make(map[game.PlayerIdType]*comm.Client, 0), // connected clients,
 	}
 }
 
 func main() {
-	server := NewServer()
-
-	g := NewGame(newServerStore(), server.dispatch, world.NewWorldService())
-
-	server.game = g
+	server := NewServer(NewGame(newServerStore(), world.NewWorldService()))
 
 	// Configure websocket route
 	http.HandleFunc("/ws", server.handleConnections)
@@ -52,20 +49,7 @@ func (s *Server) handleConnections(w http.ResponseWriter, r *http.Request) {
 	defer ws.Close()
 
 	// Register our new client
-
-	outActions := make(chan game.Action, 10)
-	dispatch := func(a game.Action) { outActions <- a }
-
-	client := comm.NewClient(ws, dispatch)
-	s.clients[client.PlayerId] = client
-
-	go func(acts <-chan game.Action) {
-		for a := range acts {
-			if err := s.route(client, a); err != nil {
-				log.Println(err)
-			}
-		}
-	}(outActions)
+	client := comm.NewClient(ws)
 
 	for client.Connected {
 		action, err := client.HandleInMessages()
@@ -73,56 +57,73 @@ func (s *Server) handleConnections(w http.ResponseWriter, r *http.Request) {
 			log.Println(err)
 			continue
 		}
+		// register new player
 		if action.GetType() == game.PlayerInitActionType {
 			client.PlayerId = action.GetPayload().(game.Player).Id
+			s.clients[client.PlayerId] = client
 		}
-		s.broadcast(client, action, dispatch)
-		s.game.HandleAction(action)
+
+		// broadcast action to others
+		s.broadcastOthers(client, action)
+
+		// synchronous dispatch func
+		outActions := make([]game.Action, 0, 10)
+		dispatch := func(a game.Action) {
+			outActions = append(outActions, a)
+		}
+
+		// action handling
+		s.game.HandleAction(action, dispatch)
+
+		// routing output actions
+		for _, a := range outActions {
+			if err := s.route(client, a, dispatch); err != nil {
+				log.Println(err)
+			}
+		}
 	}
 }
 
-func (s *Server) broadcast(client *comm.Client, action game.Action, d func(game.Action)) {
+func (s *Server) broadcastOthers(client *comm.Client, action game.Action) {
 	switch action.(type) {
 	case game.PlayerInitAction, game.MapLoadAction:
 		return
 	}
 	for _, c := range s.clients {
 		if c != client {
-			c.Dispatch(action)
+			err := c.Send(action)
+			if err != nil {
+				log.Println(err)
+			}
 		}
 	}
 }
 
-func (s *Server) dispatch(action game.Action) {
+func (s *Server) broadcastAll(action game.Action) {
 	for _, c := range s.clients {
-		c.Dispatch(action)
+		err := c.Send(action)
+		if err != nil {
+			log.Println(err)
+		}
 	}
 }
 
-func (s *Server) route(c *comm.Client, action game.Action) error {
+func (s *Server) route(c *comm.Client, action game.Action, dispatch game.DispatchFunc) error {
 	switch a := action.(type) {
-	case game.MoveStartAction, game.MoveStepAction, game.MoveStopAction, game.SpawnUnitAction:
-		s.game.HandleAction(a)
+	case game.MoveStepAction, game.MoveStopAction, game.SpawnUnitAction:
+		s.game.HandleAction(a, dispatch)
+		s.broadcastAll(a)
+	case game.PlayerInitSuccessAction:
 		if err := c.Send(action); err != nil {
 			return fmt.Errorf("route %w", err)
-		}
-	case game.PlayerInitSuccessAction:
-		if a.Payload.PlayerId == c.PlayerId {
-			if err := c.Send(action); err != nil {
-				return fmt.Errorf("route %w", err)
-			}
 		}
 	case game.MapLoadSuccessAction:
-		s.game.HandleAction(a)
-		if a.Payload.PlayerId == c.PlayerId {
-			if err := c.Send(action); err != nil {
-				return fmt.Errorf("route %w", err)
-			}
-		}
-	default:
+		s.game.HandleAction(a, dispatch)
 		if err := c.Send(action); err != nil {
 			return fmt.Errorf("route %w", err)
 		}
+	default:
+		s.broadcastAll(a)
 	}
 
 	return nil

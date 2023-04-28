@@ -3,6 +3,7 @@ package comm
 import (
 	"fmt"
 	"log"
+	"sync"
 
 	"github.com/bmcszk/gptrts/pkg/game"
 	"github.com/gorilla/websocket"
@@ -11,15 +12,15 @@ import (
 type Client struct {
 	ws        *websocket.Conn
 	Connected bool
-	Dispatch  game.DispatchFunc
 	PlayerId  game.PlayerIdType
+	mux       sync.Mutex
 }
 
-func NewClient(ws *websocket.Conn, dispatch game.DispatchFunc) *Client {
+func NewClient(ws *websocket.Conn) *Client {
 	c := &Client{
 		ws:        ws,
 		Connected: true,
-		Dispatch:  dispatch,
+		mux:       sync.Mutex{},
 	}
 	return c
 }
@@ -50,6 +51,8 @@ func (c *Client) Send(action game.Action) error {
 	if !c.Connected {
 		return nil
 	}
+	c.mux.Lock()
+	defer c.mux.Unlock()
 	log.Printf("player %s send %s", c.PlayerId, action.GetType())
 	if err := c.ws.WriteJSON(action); err != nil {
 		return fmt.Errorf("write %w", err)

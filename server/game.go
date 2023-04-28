@@ -12,17 +12,15 @@ import (
 type Game struct {
 	*game.Game
 	store        *serverStore
-	dispatch     game.DispatchFunc
 	worldService world.WorldService
 	mux          *sync.Mutex
 	starting     map[image.Point]*game.PlayerIdType
 }
 
-func NewGame(store *serverStore, dispatch game.DispatchFunc, worldService world.WorldService) *Game {
+func NewGame(store *serverStore, worldService world.WorldService) *Game {
 	g := &Game{
 		store:        store,
-		Game:         game.NewGame(store, dispatch),
-		dispatch:     dispatch,
+		Game:         game.NewGame(store),
 		worldService: worldService,
 		mux:          &sync.Mutex{},
 		starting:     make(map[image.Point]*game.PlayerIdType),
@@ -35,20 +33,18 @@ func NewGame(store *serverStore, dispatch game.DispatchFunc, worldService world.
 	return g
 }
 
-func (g *Game) HandleAction(action game.Action) {
-	g.mux.Lock()
-	defer g.mux.Unlock()
+func (g *Game) HandleAction(action game.Action, dispatch game.DispatchFunc) {
 	log.Printf("server handle %s", action.GetType())
-	g.Game.HandleAction(action)
+	g.Game.HandleAction(action, dispatch)
 	switch a := action.(type) {
 	case game.PlayerInitAction:
-		g.handlePlayerInitAction(a)
+		g.handlePlayerInitAction(a, dispatch)
 	case game.MapLoadAction:
-		g.handleMapLoadAction(a)
+		g.handleMapLoadAction(a, dispatch)
 	}
 }
 
-func (g *Game) handlePlayerInitAction(action game.PlayerInitAction) {
+func (g *Game) handlePlayerInitAction(action game.PlayerInitAction, dispatch game.DispatchFunc) {
 	player := &action.Payload
 	id := player.Id
 	_, existing := g.store.players[id]
@@ -68,7 +64,7 @@ func (g *Game) handlePlayerInitAction(action game.PlayerInitAction) {
 	for _, player := range g.store.players {
 		successAction.Payload.Players = append(successAction.Payload.Players, *player)
 	}
-	g.dispatch(successAction)
+	dispatch(successAction)
 
 	// unit spawn only for new player
 	if existing {
@@ -88,10 +84,10 @@ func (g *Game) handlePlayerInitAction(action game.PlayerInitAction) {
 		Type:    game.SpawnUnitActionType,
 		Payload: *unit,
 	}
-	g.dispatch(unitAction)
+	dispatch(unitAction)
 }
 
-func (g *Game) handleMapLoadAction(action game.MapLoadAction) {
+func (g *Game) handleMapLoadAction(action game.MapLoadAction, dispatch game.DispatchFunc) {
 
 	_, ok1 := g.store.tiles[image.Pt(action.Payload.MinX, action.Payload.MinY)]
 	_, ok2 := g.store.tiles[image.Pt(action.Payload.MaxX, action.Payload.MaxY)]
@@ -113,7 +109,7 @@ func (g *Game) handleMapLoadAction(action game.MapLoadAction) {
 				PlayerId:      action.Payload.PlayerId,
 			},
 		}
-		g.dispatch(successAction)
+		dispatch(successAction)
 		return
 
 	}
@@ -132,5 +128,5 @@ func (g *Game) handleMapLoadAction(action game.MapLoadAction) {
 			PlayerId:      action.Payload.PlayerId,
 		},
 	}
-	g.dispatch(successAction)
+	dispatch(successAction)
 }

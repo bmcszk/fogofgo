@@ -5,7 +5,7 @@ import (
 )
 
 const (
-	tileSize = 16
+	tileSize       = 16
 	tileSpriteSize = 16
 	tileSpriteXNum = 7
 )

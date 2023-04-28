@@ -9,27 +9,25 @@ import (
 type DispatchFunc func(Action)
 
 type Game struct {
-	store    Store
-	dispatch DispatchFunc
+	store Store
 }
 
-func NewGame(store Store, dispatch DispatchFunc) *Game {
+func NewGame(store Store) *Game {
 	return &Game{
-		store:    store,
-		dispatch: dispatch,
+		store: store,
 	}
 }
 
-func (g *Game) HandleAction(action Action) {
+func (g *Game) HandleAction(action Action, dispatch DispatchFunc) {
 	switch a := action.(type) {
 	case PlayerInitSuccessAction:
-		g.handlePlayerInitSuccessAction(a)
+		g.handlePlayerInitSuccessAction(a, dispatch)
 	case SpawnUnitAction:
-		g.handleSpawnUnitAction(a)
+		g.handleSpawnUnitAction(a, dispatch)
 	case MoveStartAction:
 		g.handleMoveStartAction(a)
 	case MoveStepAction:
-		g.handleMoveStepAction(a)
+		g.handleMoveStepAction(a, dispatch)
 	case MoveStopAction:
 		g.handleMoveStopAction(a)
 	case MapLoadSuccessAction:
@@ -37,10 +35,10 @@ func (g *Game) HandleAction(action Action) {
 	}
 }
 
-func (g *Game) handlePlayerInitSuccessAction(action PlayerInitSuccessAction) {
+func (g *Game) handlePlayerInitSuccessAction(action PlayerInitSuccessAction, dispatch DispatchFunc) {
 	for _, u := range action.Payload.Units {
 		unit := u
-		unit.dispatch = g.dispatch
+		unit.dispatch = dispatch
 		g.store.StoreUnit(unit)
 		if err := g.placeUnit(unit); err != nil {
 			log.Println(err)
@@ -52,9 +50,9 @@ func (g *Game) handlePlayerInitSuccessAction(action PlayerInitSuccessAction) {
 	}
 }
 
-func (g *Game) handleSpawnUnitAction(action SpawnUnitAction) {
+func (g *Game) handleSpawnUnitAction(action SpawnUnitAction, dispatch DispatchFunc) {
 	unit := action.Payload
-	unit.dispatch = g.dispatch
+	unit.dispatch = dispatch
 	g.store.StoreUnit(unit)
 	if err := g.placeUnit(unit); err != nil {
 		log.Println(err)
@@ -68,7 +66,7 @@ func (g *Game) handleMoveStartAction(action MoveStartAction) {
 	unit.MoveTo(action.Payload.Point)
 }
 
-func (g *Game) handleMoveStepAction(action MoveStepAction) {
+func (g *Game) handleMoveStepAction(action MoveStepAction, dispatch DispatchFunc) {
 	//clean position
 	for _, tile := range g.store.GetTilesByUnitId(action.Payload.UnitId) {
 		tile.UnitId = ZeroUnitId
@@ -87,7 +85,7 @@ func (g *Game) handleMoveStepAction(action MoveStepAction) {
 	if len(action.Payload.Path) > action.Payload.Step {
 		nextStep := action.Payload.Path[action.Payload.Step]
 		if err := g.placeUnit(*unit, nextStep); err != nil {
-			g.dispatch(MoveStopAction{
+			dispatch(MoveStopAction{
 				Type:    MoveStopActionType,
 				Payload: unit.Id,
 			})
@@ -109,7 +107,6 @@ func (g *Game) handleMoveStopAction(action MoveStopAction) {
 
 	unit.Path = []image.Point{}
 	unit.Step = 0
-
 }
 
 func (g *Game) handleMapLoadSuccessAction(action MapLoadSuccessAction) {

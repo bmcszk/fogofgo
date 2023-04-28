@@ -29,7 +29,7 @@ type Game struct {
 }
 
 func NewGame(playerId game.PlayerIdType, store *clientStore, dispatch game.DispatchFunc) *Game {
-	g := game.NewGame(store, dispatch)
+	g := game.NewGame(store)
 	cg := &Game{
 		store:    store,
 		PlayerId: playerId,
@@ -43,11 +43,8 @@ func NewGame(playerId game.PlayerIdType, store *clientStore, dispatch game.Dispa
 }
 
 func (g *Game) HandleAction(action game.Action) {
-	g.mux.Lock()
-	defer g.mux.Unlock()
-
 	log.Printf("client handle %s", action.GetType())
-	g.Game.HandleAction(action)
+	g.Game.HandleAction(action, g.dispatch)
 	switch action.(type) {
 	case game.SpawnUnitAction, game.MoveStepAction, game.PlayerInitSuccessAction:
 		g.updateVisibility()
