@@ -196,26 +196,27 @@ func (g *Game) Update() error {
 }
 
 func (g *Game) updateVisibility() {
+	m := make(map[image.Point]bool, 0)
 	for _, t := range g.store.tiles {
-		t.visible = false
-		if t.UnitId != game.ZeroUnitId {
-			g.store.units[t.UnitId].visible = false
+		if t.visible || t.UnitId != game.ZeroUnitId {
+			m[t.Point] = false
 		}
 	}
 	for _, unit := range g.store.units {
 		if unit.Owner != g.PlayerId {
 			continue
 		}
-		unit.visible = true
 		for _, vector := range unit.ISee {
 			p := unit.Position.ImagePoint().Add(vector)
-			if t, ok := g.store.tiles[p]; ok {
-				t.visible = true
-				if t.UnitId != game.ZeroUnitId && t.UnitId != unit.Id {
-					g.store.units[t.UnitId].visible = true
-				}
+			m[p] = true
+		}
+	}
+	for p, v := range m {
+		if t, ok := g.store.tiles[p]; ok {
+			t.visible = v
+			if t.UnitId != game.ZeroUnitId {
+				g.store.units[t.UnitId].visible = v
 			}
-
 		}
 	}
 }
