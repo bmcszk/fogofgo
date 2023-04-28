@@ -6,6 +6,7 @@ import (
 	"sync"
 
 	"github.com/bmcszk/gptrts/pkg/game"
+	"github.com/google/uuid"
 	"github.com/gorilla/websocket"
 )
 
@@ -43,7 +44,7 @@ func (c *Client) HandleInMessages() (game.Action, error) {
 		log.Println(err)
 		return game.GenericAction[any]{}, err
 	}
-	log.Printf("player %s getting %s", c.PlayerId, action.GetType())
+	log.Printf("player %s getting %s", uuid.UUID(c.PlayerId), action.GetType())
 	return action, nil
 }
 
@@ -53,7 +54,7 @@ func (c *Client) Send(action game.Action) error {
 	}
 	c.mux.Lock()
 	defer c.mux.Unlock()
-	log.Printf("player %s send %s", c.PlayerId, action.GetType())
+	log.Printf("player %s sending %s", uuid.UUID(c.PlayerId), action.GetType())
 	if err := c.ws.WriteJSON(action); err != nil {
 		return fmt.Errorf("write %w", err)
 	}

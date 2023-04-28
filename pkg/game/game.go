@@ -120,7 +120,10 @@ func (g *Game) placeUnit(unit Unit, positions ...image.Point) error {
 		positions = []image.Point{unit.Position.ImagePoint()}
 	}
 	for _, p := range positions {
-		t := g.store.GetTile(p)
+		t, ok := g.store.GetTile(p)
+		if !ok {
+			t = g.store.CreateTile(p)
+		}
 
 		//set position
 		if t.UnitId != ZeroUnitId && t.UnitId != unit.Id {

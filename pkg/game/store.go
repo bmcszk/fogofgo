@@ -12,5 +12,6 @@ type Store interface {
 	StorePlayer(player Player)
 	GetTilesByUnitId(id UnitIdType) []*Tile
 	StoreTile(tile world.Tile) *Tile
-	GetTile(image.Point) *Tile
+	GetTile(image.Point) (*Tile, bool)
+	CreateTile(image.Point) *Tile
 }
