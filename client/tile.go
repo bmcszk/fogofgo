@@ -6,7 +6,8 @@ import (
 
 const (
 	tileSize = 16
-	tileXNum = 7
+	tileSpriteSize = 16
+	tileSpriteXNum = 7
 )
 
 type Tile struct {

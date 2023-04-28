@@ -15,12 +15,12 @@ var upgrader = websocket.Upgrader{}
 
 type Server struct {
 	game    *Game
-	clients []*comm.Client
+	clients map[game.PlayerIdType]*comm.Client
 }
 
 func NewServer() *Server {
 	return &Server{
-		clients: make([]*comm.Client, 0), // connected clients,
+		clients: make(map[game.PlayerIdType]*comm.Client, 0), // connected clients,
 	}
 }
 
@@ -53,11 +53,11 @@ func (s *Server) handleConnections(w http.ResponseWriter, r *http.Request) {
 
 	// Register our new client
 
-	actions := make(chan game.Action, 10)
-	dispatch := func(a game.Action) { actions <- a }
+	outActions := make(chan game.Action, 10)
+	dispatch := func(a game.Action) { outActions <- a }
 
 	client := comm.NewClient(ws, dispatch)
-	s.clients = append(s.clients, client)
+	s.clients[client.PlayerId] = client
 
 	go func(acts <-chan game.Action) {
 		for a := range acts {
@@ -65,7 +65,7 @@ func (s *Server) handleConnections(w http.ResponseWriter, r *http.Request) {
 				log.Println(err)
 			}
 		}
-	}(actions)
+	}(outActions)
 
 	for client.Connected {
 		action, err := client.HandleInMessages()

@@ -42,10 +42,10 @@ func (m *Screen) Draw(screen *ebiten.Image, cameraX, cameraY int) {
 			screen.DrawImage(getBackgroundColorImage(t.BackStyleClass), op)
 
 			tileSpriteNo := getTile(t.FrontStyleClass)
-			sx := (tileSpriteNo % tileXNum) * tileSize
-			sy := (tileSpriteNo / tileXNum) * tileSize
+			sx := (tileSpriteNo % tileSpriteXNum) * tileSpriteSize
+			sy := (tileSpriteNo / tileSpriteXNum) * tileSpriteSize
 
-			screen.DrawImage(tilesImage.SubImage(image.Rect(sx, sy, sx+tileSize, sy+tileSize)).(*ebiten.Image), op)
+			screen.DrawImage(tilesImage.SubImage(image.Rect(sx, sy, sx+tileSpriteSize, sy+tileSpriteSize)).(*ebiten.Image), op)
 		}
 	}
 }
