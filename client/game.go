@@ -4,7 +4,6 @@ import (
 	"image"
 	"image/color"
 	"log"
-	"sync"
 
 	"github.com/bmcszk/gptrts/pkg/convert"
 	"github.com/bmcszk/gptrts/pkg/game"
@@ -18,45 +17,40 @@ const (
 
 type QueueFunc func(game.Action)
 
-type Game struct {
+type clientGame struct {
 	*game.Game
 	store            game.Store
-	PlayerId         game.PlayerIdType
+	playerId         game.PlayerIdType
 	cameraX, cameraY int
 	centerX, centerY int
 	selectionBox     *image.Rectangle
 	queueFunc        QueueFunc
-	mux              *sync.Mutex
-	screen           *Screen
+	screen           *screen
 }
 
-func NewGame(playerId game.PlayerIdType, store game.Store, queueFunc QueueFunc) *Game {
+func newClientGame(playerId game.PlayerIdType, store game.Store, queueFunc QueueFunc) *clientGame {
 	g := game.NewGame(store)
-	cg := &Game{
+	cg := &clientGame{
 		store:     store,
-		PlayerId:  playerId,
+		playerId:  playerId,
 		Game:      g,
 		queueFunc: queueFunc,
-		mux:       &sync.Mutex{},
-		screen:    NewScreen(image.Rectangle{}),
+		screen:    newScreen(image.Rectangle{}),
 	}
 
 	return cg
 }
 
-func (g *Game) HandleAction(action game.Action, dispatch game.DispatchFunc) {
+func (g *clientGame) HandleAction(action game.Action, dispatch game.DispatchFunc) {
 	log.Printf("client handle %s", action.GetType())
 	g.Game.HandleAction(action, dispatch)
 	switch action.(type) {
-	case game.SpawnUnitAction, game.MoveStepAction, game.PlayerJoinSuccessAction:
-		g.updateVisibility()
-	case game.MapLoadSuccessAction:
-		g.loadScreen()
+	case game.SpawnUnitAction, game.MoveStepAction, game.PlayerJoinSuccessAction, game.MapLoadSuccessAction:
 		g.updateVisibility()
 	}
 }
 
-func (g *Game) Layout(outsideWidth, outsideHeight int) (int, int) {
+func (g *clientGame) Layout(outsideWidth, outsideHeight int) (int, int) {
 	/* // Calculate the desired screen size based on the size of the map
 	sw := len(g.Map.Tiles[0]) * tileSize
 	sh := len(g.Map.Tiles) * tileSize
@@ -77,42 +71,17 @@ func (g *Game) Layout(outsideWidth, outsideHeight int) (int, int) {
 	maxX, maxY := g.screenToWorldTiles(outsideWidth, outsideHeight)
 	rect := image.Rect(minX, minY, maxX, maxY)
 
-	if g.SetScreen(rect) {
-		g.loadScreen()
+	if g.setScreen(rect) {
+		g.screen = g.newScreen(rect)
 		g.updateVisibility()
 	}
 
 	return outsideWidth, outsideHeight
 }
 
-func (g *Game) SetScreen(rect image.Rectangle) bool {
-	if g.screen.rect.Eq(rect) {
-		return false
-	}
-	currRect := g.screen.rect
-	if rect.Min.X < currRect.Min.X {
-		action := game.NewMapLoadAction(image.Rect(rect.Min.X, rect.Min.Y, currRect.Min.X, currRect.Max.Y), g.PlayerId)
-		g.queueFunc(action)
-	}
-	if rect.Min.Y < currRect.Min.Y {
-		action := game.NewMapLoadAction(image.Rect(rect.Min.X, rect.Min.Y, currRect.Max.X, currRect.Min.Y), g.PlayerId)
-		g.queueFunc(action)
-	}
-	if rect.Max.X > currRect.Max.X {
-		action := game.NewMapLoadAction(image.Rect(currRect.Min.X, currRect.Max.Y, rect.Max.X, rect.Max.Y), g.PlayerId)
-		g.queueFunc(action)
-	}
-	if rect.Max.Y > currRect.Max.Y {
-		action := game.NewMapLoadAction(image.Rect(currRect.Max.Y, currRect.Min.Y, rect.Max.X, rect.Max.Y), g.PlayerId)
-		g.queueFunc(action)
-	}
-	g.screen.rect = rect
-	return true
-}
-
-func (g *Game) Draw(screen *ebiten.Image) {
+func (g *clientGame) Draw(enScreen *ebiten.Image) {
 	// Draw the map
-	g.screen.Draw(screen, g.centerX+g.cameraX, g.centerY+g.cameraY)
+	g.screen.draw(enScreen, g.centerX+g.cameraX, g.centerY+g.cameraY)
 
 	// Draw the selection box
 	if g.selectionBox != nil {
@@ -121,11 +90,11 @@ func (g *Game) Draw(screen *ebiten.Image) {
 		x2, y2 := g.worldToScreen(r.Max.X, r.Max.Y)
 
 		col := color.RGBA{0, 255, 0, 128}
-		ebitenutil.DrawRect(screen, float64(x1), float64(y1), float64(x2-x1), float64(y2-y1), col)
+		ebitenutil.DrawRect(enScreen, float64(x1), float64(y1), float64(x2-x1), float64(y2-y1), col)
 	}
 }
 
-func (g *Game) Update() error {
+func (g *clientGame) Update() error {
 	// Move camera with arrow keys
 	if ebiten.IsKeyPressed(ebiten.KeyArrowLeft) {
 		g.cameraX -= cameraSpeed
@@ -169,17 +138,18 @@ func (g *Game) Update() error {
 	if ebiten.IsMouseButtonPressed(ebiten.MouseButtonRight) && ebiten.IsFocused() {
 		mx, my := ebiten.CursorPosition()
 		tileX, tileY := g.screenToWorldTiles(mx, my)
-		for _, u := range g.store.GetAllUnits() {
-			if u.Selected && u.Owner == g.PlayerId {
-				moveStartAction := game.MoveStartAction{
-					Type: game.MoveStartActionType,
-					Payload: game.MoveStartPayload{
-						UnitId: u.Id,
-						Point:  image.Pt(tileX, tileY),
-					},
-				}
-				g.queueFunc(moveStartAction)
+		for _, u := range g.store.GetUnitsByPlayerId(g.playerId) {
+			if !u.Selected {
+				continue
 			}
+			moveStartAction := game.MoveStartAction{
+				Type: game.MoveStartActionType,
+				Payload: game.MoveStartPayload{
+					UnitId: u.Id,
+					Point:  image.Pt(tileX, tileY),
+				},
+			}
+			g.queueFunc(moveStartAction)
 		}
 	}
 
@@ -190,58 +160,80 @@ func (g *Game) Update() error {
 	return nil
 }
 
-func (g *Game) updateVisibility() {
+func (g *clientGame) updateVisibility() {
 	m := make(map[image.Point]bool, 0)
 	for _, t := range g.screen.tiles {
 		if t.Visible || t.Unit != nil {
 			m[t.Point] = false
 		}
 	}
-	for _, unit := range g.store.GetAllUnits() {
-		if unit.Owner != g.PlayerId {
-			continue
-		}
+	for _, unit := range g.store.GetUnitsByPlayerId(g.playerId) {
 		for _, vector := range unit.ISee {
 			p := unit.Position.ImagePoint().Add(vector)
 			m[p] = true
 		}
 	}
-	for p, v := range m {
+	for p, visible := range m {
 		if t, ok := g.screen.tiles[p]; ok {
-			t.Visible = v
+			t.Visible = visible
 		}
 	}
 }
 
-func (g *Game) screenToWorld(screenX, screenY int) (int, int) {
+func (g *clientGame) screenToWorld(screenX, screenY int) (int, int) {
 	worldX := screenX + g.cameraX
 	worldY := screenY + g.cameraY
 	return worldX, worldY
 }
 
-func (g *Game) screenToWorldTiles(screenX, screenY int) (int, int) {
+func (g *clientGame) screenToWorldTiles(screenX, screenY int) (int, int) {
 	tileX := (screenX + g.cameraX) / tileSize
 	tileY := (screenY + g.cameraY) / tileSize
 	return tileX, tileY
 }
 
-func (g *Game) worldToScreen(worldX, worldY int) (int, int) {
+func (g *clientGame) worldToScreen(worldX, worldY int) (int, int) {
 	screenX := worldX - g.cameraX
 	screenY := worldY - g.cameraY
 	return screenX, screenY
 }
 
-func (g *Game) loadScreen() {
-	screen := NewScreen(g.screen.rect)
-	for x := screen.rect.Min.X; x < screen.rect.Max.X; x++ {
-		for y := screen.rect.Min.Y; y < screen.rect.Max.Y; y++ {
+func (g *clientGame) setScreen(rect image.Rectangle) bool {
+	if g.screen.rect.Eq(rect) {
+		return false
+	}
+	currRect := g.screen.rect
+	if rect.Min.X < currRect.Min.X {
+		action := game.NewMapLoadAction(image.Rect(rect.Min.X, rect.Min.Y, currRect.Min.X, currRect.Max.Y), g.playerId)
+		g.queueFunc(action)
+	}
+	if rect.Min.Y < currRect.Min.Y {
+		action := game.NewMapLoadAction(image.Rect(rect.Min.X, rect.Min.Y, currRect.Max.X, currRect.Min.Y), g.playerId)
+		g.queueFunc(action)
+	}
+	if rect.Max.X > currRect.Max.X {
+		action := game.NewMapLoadAction(image.Rect(currRect.Min.X, currRect.Max.Y, rect.Max.X, rect.Max.Y), g.playerId)
+		g.queueFunc(action)
+	}
+	if rect.Max.Y > currRect.Max.Y {
+		action := game.NewMapLoadAction(image.Rect(currRect.Max.Y, currRect.Min.Y, rect.Max.X, rect.Max.Y), g.playerId)
+		g.queueFunc(action)
+	}
+	g.screen.rect = rect
+	return true
+}
+
+func (g *clientGame) newScreen(rect image.Rectangle) *screen {
+	s := newScreen(rect)
+	for x := rect.Min.X; x < rect.Max.X; x++ {
+		for y := rect.Min.Y; y < rect.Max.Y; y++ {
 			p := image.Pt(x, y)
 			t, ok := g.store.GetTile(p)
 			if !ok {
 				t = g.store.CreateTile(p)
 			}
-			screen.tiles[p] = t
+			s.tiles[p] = t
 		}
 	}
-	g.screen = screen
+	return s
 }

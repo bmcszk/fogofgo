@@ -30,7 +30,7 @@ var (
 
 type client struct {
 	*comm.Client
-	game *Game
+	game *clientGame
 }
 
 func newClient(id game.PlayerIdType, ws *websocket.Conn) *client {
@@ -78,7 +78,7 @@ func main() {
 
 	c := newClient(playerId, ws)
 
-	g := NewGame(playerId, game.NewStoreImpl(), c.queue)
+	g := newClientGame(playerId, game.NewStoreImpl(), c.queue)
 	c.game = g
 
 	// Read messages from the server

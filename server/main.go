@@ -14,11 +14,11 @@ import (
 var upgrader = websocket.Upgrader{}
 
 type server struct {
-	game    *Game
+	game    *serverGame
 	clients map[game.PlayerIdType]*comm.Client
 }
 
-func newServer(g *Game) *server {
+func newServer(g *serverGame) *server {
 	return &server{
 		game:    g,
 		clients: make(map[game.PlayerIdType]*comm.Client, 0), // connected clients,
@@ -26,7 +26,7 @@ func newServer(g *Game) *server {
 }
 
 func main() {
-	s := newServer(NewGame(game.NewStoreImpl(), world.NewWorldService()))
+	s := newServer(newServerGame(game.NewStoreImpl(), world.NewWorldService()))
 
 	// Configure websocket route
 	http.HandleFunc("/ws", s.handleConnections)

@@ -18,26 +18,26 @@ const (
 	selectedBorder = 2
 )
 
-type Screen struct {
+type screen struct {
 	rect  image.Rectangle
 	tiles map[image.Point]*game.Tile
 	units map[*game.Unit]bool
 }
 
-func NewScreen(rect image.Rectangle) *Screen {
+func newScreen(rect image.Rectangle) *screen {
 	size := rect.Size()
 	area := size.X * size.Y
-	return &Screen{
+	return &screen{
 		rect:  rect,
 		tiles: make(map[image.Point]*game.Tile, area),
 		units: make(map[*game.Unit]bool, 0),
 	}
 }
 
-func (s *Screen) Draw(screen *ebiten.Image, cameraX, cameraY int) {
+func (s *screen) draw(enScreen *ebiten.Image, cameraX, cameraY int) {
 	for _, t := range s.tiles {
 		if t != nil {
-			DrawTile(t, screen, cameraX, cameraY)
+			drawTile(t, enScreen, cameraX, cameraY)
 			if t.Unit != nil {
 				s.units[t.Unit] = t.Visible
 			}
@@ -45,12 +45,12 @@ func (s *Screen) Draw(screen *ebiten.Image, cameraX, cameraY int) {
 	}
 	for u, visible := range s.units {
 		if visible {
-			DrawUnit(u, screen, cameraX, cameraY)
+			drawUnit(u, enScreen, cameraX, cameraY)
 		}
 	}
 }
 
-func DrawTile(t *game.Tile, screen *ebiten.Image, cameraX, cameraY int) {
+func drawTile(t *game.Tile, enScreen *ebiten.Image, cameraX, cameraY int) {
 	p := t.Point
 
 	op := &ebiten.DrawImageOptions{}
@@ -63,26 +63,26 @@ func DrawTile(t *game.Tile, screen *ebiten.Image, cameraX, cameraY int) {
 	}
 
 	op.GeoM.Translate(float64(p.X*tileSize-cameraX), float64(p.Y*tileSize-cameraY))
-	screen.DrawImage(getBackgroundColorImage(t.BackStyleClass), op)
+	enScreen.DrawImage(getBackgroundColorImage(t.BackStyleClass), op)
 
 	tileSpriteNo := getTile(t.FrontStyleClass)
 	sx := (tileSpriteNo % tileSpriteXNum) * tileSpriteSize
 	sy := (tileSpriteNo / tileSpriteXNum) * tileSpriteSize
 
-	screen.DrawImage(tilesImage.SubImage(image.Rect(sx, sy, sx+tileSpriteSize, sy+tileSpriteSize)).(*ebiten.Image), op)
+	enScreen.DrawImage(tilesImage.SubImage(image.Rect(sx, sy, sx+tileSpriteSize, sy+tileSpriteSize)).(*ebiten.Image), op)
 }
 
-func DrawUnit(u *game.Unit, screen *ebiten.Image, cameraX, cameraY int) {
+func drawUnit(u *game.Unit, enScreen *ebiten.Image, cameraX, cameraY int) {
 	screenPosition := u.Position.Mul(tileSize)
 	x := screenPosition.X - float64(cameraX)
 	y := screenPosition.Y - float64(cameraY)
 
 	if u.Selected {
 		col := color.RGBA{0, 255, 0, 255}
-		ebitenutil.DrawRect(screen, x-selectedBorder, y-selectedBorder, float64(u.Size.X+(selectedBorder*2)), float64(u.Size.Y+(selectedBorder*2)), col)
+		ebitenutil.DrawRect(enScreen, x-selectedBorder, y-selectedBorder, float64(u.Size.X+(selectedBorder*2)), float64(u.Size.Y+(selectedBorder*2)), col)
 	}
 
-	ebitenutil.DrawRect(screen, x, y, float64(u.Size.X), float64(u.Size.Y), u.Color)
+	ebitenutil.DrawRect(enScreen, x, y, float64(u.Size.X), float64(u.Size.Y), u.Color)
 }
 
 func getBackgroundColorImage(className string) *ebiten.Image {

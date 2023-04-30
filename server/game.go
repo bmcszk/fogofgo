@@ -3,26 +3,23 @@ package main
 import (
 	"image"
 	"log"
-	"sync"
 
 	"github.com/bmcszk/gptrts/pkg/game"
 	"github.com/bmcszk/gptrts/pkg/world"
 )
 
-type Game struct {
+type serverGame struct {
 	*game.Game
 	store        game.Store
 	worldService world.WorldService
-	mux          *sync.Mutex
 	starting     map[image.Point]*game.PlayerIdType
 }
 
-func NewGame(store game.Store, worldService world.WorldService) *Game {
-	g := &Game{
+func newServerGame(store game.Store, worldService world.WorldService) *serverGame {
+	g := &serverGame{
 		store:        store,
 		Game:         game.NewGame(store),
 		worldService: worldService,
-		mux:          &sync.Mutex{},
 		starting:     make(map[image.Point]*game.PlayerIdType),
 	}
 	g.starting[image.Pt(1, 1)] = nil
@@ -33,7 +30,7 @@ func NewGame(store game.Store, worldService world.WorldService) *Game {
 	return g
 }
 
-func (g *Game) HandleAction(action game.Action, dispatch game.DispatchFunc) {
+func (g *serverGame) HandleAction(action game.Action, dispatch game.DispatchFunc) {
 	log.Printf("server handle %s", action.GetType())
 	g.Game.HandleAction(action, dispatch)
 	switch a := action.(type) {
@@ -44,7 +41,7 @@ func (g *Game) HandleAction(action game.Action, dispatch game.DispatchFunc) {
 	}
 }
 
-func (g *Game) handlePlayerJoinAction(action game.PlayerJoinAction, dispatch game.DispatchFunc) {
+func (g *serverGame) handlePlayerJoinAction(action game.PlayerJoinAction, dispatch game.DispatchFunc) {
 	player := action.Payload
 	id := player.Id
 	_, existing := g.store.GetPlayer(id)
@@ -87,7 +84,7 @@ func (g *Game) handlePlayerJoinAction(action game.PlayerJoinAction, dispatch gam
 	dispatch(unitAction)
 }
 
-func (g *Game) handleMapLoadAction(action game.MapLoadAction, dispatch game.DispatchFunc) {
+func (g *serverGame) handleMapLoadAction(action game.MapLoadAction, dispatch game.DispatchFunc) {
 
 	_, ok1 := g.store.GetTile(image.Pt(action.Payload.MinX, action.Payload.MinY))
 	_, ok2 := g.store.GetTile(image.Pt(action.Payload.MaxX, action.Payload.MaxY))

@@ -10,11 +10,13 @@ import (
 type Store interface {
 	StoreUnit(unit *Unit)
 	GetUnitById(id UnitIdType) *Unit
-
 	GetAllUnits() []*Unit
+	GetUnitsByPlayerId(id PlayerIdType) []*Unit
+
 	GetPlayer(id PlayerIdType) (*Player, bool)
 	GetAllPlayers() []*Player
 	StorePlayer(player Player)
+
 	GetTilesByUnitId(id UnitIdType) []*Tile
 	StoreTile(tile world.Tile) *Tile
 	GetTile(image.Point) (*Tile, bool)
@@ -47,6 +49,18 @@ func (s *StoreImpl) GetAllUnits() []*Unit {
 	r := make([]*Unit, 0, len(s.units))
 	for _, u := range s.units {
 		r = append(r, u)
+	}
+	return r
+}
+
+func (s *StoreImpl) GetUnitsByPlayerId(id PlayerIdType) []*Unit {
+	s.unitMux.Lock()
+	defer s.unitMux.Unlock()
+	r := make([]*Unit, 0, len(s.units))
+	for _, u := range s.units {
+		if u.Owner == id {
+			r = append(r, u)
+		}
 	}
 	return r
 }
