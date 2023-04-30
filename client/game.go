@@ -20,7 +20,7 @@ type QueueFunc func(game.Action)
 
 type Game struct {
 	*game.Game
-	store            *clientStore
+	store            game.Store
 	PlayerId         game.PlayerIdType
 	cameraX, cameraY int
 	centerX, centerY int
@@ -30,7 +30,7 @@ type Game struct {
 	screen           *Screen
 }
 
-func NewGame(playerId game.PlayerIdType, store *clientStore, queueFunc QueueFunc) *Game {
+func NewGame(playerId game.PlayerIdType, store game.Store, queueFunc QueueFunc) *Game {
 	g := game.NewGame(store)
 	cg := &Game{
 		store:     store,
@@ -38,7 +38,7 @@ func NewGame(playerId game.PlayerIdType, store *clientStore, queueFunc QueueFunc
 		Game:      g,
 		queueFunc: queueFunc,
 		mux:       &sync.Mutex{},
-		screen:    NewScreen(),
+		screen:    NewScreen(image.Rectangle{}),
 	}
 
 	return cg
@@ -51,7 +51,7 @@ func (g *Game) HandleAction(action game.Action, dispatch game.DispatchFunc) {
 	case game.SpawnUnitAction, game.MoveStepAction, game.PlayerJoinSuccessAction:
 		g.updateVisibility()
 	case game.MapLoadSuccessAction:
-		g.loadMap()
+		g.loadScreen()
 		g.updateVisibility()
 	}
 }
@@ -78,7 +78,8 @@ func (g *Game) Layout(outsideWidth, outsideHeight int) (int, int) {
 	rect := image.Rect(minX, minY, maxX, maxY)
 
 	if g.SetScreen(rect) {
-		g.loadMap()
+		g.loadScreen()
+		g.updateVisibility()
 	}
 
 	return outsideWidth, outsideHeight
@@ -112,11 +113,6 @@ func (g *Game) SetScreen(rect image.Rectangle) bool {
 func (g *Game) Draw(screen *ebiten.Image) {
 	// Draw the map
 	g.screen.Draw(screen, g.centerX+g.cameraX, g.centerY+g.cameraY)
-
-	// Draw units
-	for _, unit := range g.store.units {
-		unit.Draw(screen, g.centerX+g.cameraX, g.centerY+g.cameraY)
-	}
 
 	// Draw the selection box
 	if g.selectionBox != nil {
@@ -160,8 +156,8 @@ func (g *Game) Update() error {
 
 	if g.selectionBox != nil {
 		r := *g.selectionBox
-		for _, u := range g.store.units {
-			if r.Canon().Overlaps(u.GetRect()) {
+		for _, u := range g.store.GetAllUnits() {
+			if r.Canon().Overlaps(getRect(u)) {
 				u.Selected = true
 			} else if !ebiten.IsKeyPressed(ebiten.KeyShift) {
 				u.Selected = false
@@ -173,8 +169,8 @@ func (g *Game) Update() error {
 	if ebiten.IsMouseButtonPressed(ebiten.MouseButtonRight) && ebiten.IsFocused() {
 		mx, my := ebiten.CursorPosition()
 		tileX, tileY := g.screenToWorldTiles(mx, my)
-		for _, u := range g.store.units {
-			if u.Selected && u.Unit.Owner == g.PlayerId {
+		for _, u := range g.store.GetAllUnits() {
+			if u.Selected && u.Owner == g.PlayerId {
 				moveStartAction := game.MoveStartAction{
 					Type: game.MoveStartActionType,
 					Payload: game.MoveStartPayload{
@@ -187,7 +183,7 @@ func (g *Game) Update() error {
 		}
 	}
 
-	for _, u := range g.store.units {
+	for _, u := range g.store.GetAllUnits() {
 		u.Update()
 	}
 
@@ -196,12 +192,12 @@ func (g *Game) Update() error {
 
 func (g *Game) updateVisibility() {
 	m := make(map[image.Point]bool, 0)
-	for _, t := range g.store.tiles {
-		if t.visible || t.UnitId != game.ZeroUnitId {
+	for _, t := range g.screen.tiles {
+		if t.Visible || t.Unit != nil {
 			m[t.Point] = false
 		}
 	}
-	for _, unit := range g.store.units {
+	for _, unit := range g.store.GetAllUnits() {
 		if unit.Owner != g.PlayerId {
 			continue
 		}
@@ -211,11 +207,8 @@ func (g *Game) updateVisibility() {
 		}
 	}
 	for p, v := range m {
-		if t, ok := g.store.tiles[p]; ok {
-			t.visible = v
-			if t.UnitId != game.ZeroUnitId {
-				g.store.units[t.UnitId].visible = v
-			}
+		if t, ok := g.screen.tiles[p]; ok {
+			t.Visible = v
 		}
 	}
 }
@@ -238,13 +231,17 @@ func (g *Game) worldToScreen(worldX, worldY int) (int, int) {
 	return screenX, screenY
 }
 
-func (g *Game) loadMap() {
-	g.screen.tiles = make([][]*Tile, 0, 100 /*optimize me*/)
-	for x := g.screen.rect.Min.X; x <= g.screen.rect.Max.X; x++ {
-		row := make([]*Tile, 0, 100 /*optimize me*/)
-		for y := g.screen.rect.Min.Y; y <= g.screen.rect.Max.Y; y++ {
-			row = append(row, g.store.tiles[image.Pt(x, y)])
+func (g *Game) loadScreen() {
+	screen := NewScreen(g.screen.rect)
+	for x := screen.rect.Min.X; x < screen.rect.Max.X; x++ {
+		for y := screen.rect.Min.Y; y < screen.rect.Max.Y; y++ {
+			p := image.Pt(x, y)
+			t, ok := g.store.GetTile(p)
+			if !ok {
+				t = g.store.CreateTile(p)
+			}
+			screen.tiles[p] = t
 		}
-		g.screen.tiles = append(g.screen.tiles, row)
 	}
+	g.screen = screen
 }

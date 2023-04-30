@@ -6,48 +6,83 @@ import (
 	"image/color"
 	"log"
 
+	"github.com/bmcszk/gptrts/pkg/game"
 	"github.com/hajimehoshi/ebiten/v2"
+	"github.com/hajimehoshi/ebiten/v2/ebitenutil"
+)
+
+const (
+	tileSize       = 16
+	tileSpriteSize = 16
+	tileSpriteXNum = 7
+	selectedBorder = 2
 )
 
 type Screen struct {
 	rect  image.Rectangle
-	tiles [][]*Tile
+	tiles map[image.Point]*game.Tile
+	units map[*game.Unit]bool
 }
 
-func NewScreen() *Screen {
-	return &Screen{}
+func NewScreen(rect image.Rectangle) *Screen {
+	size := rect.Size()
+	area := size.X * size.Y
+	return &Screen{
+		rect:  rect,
+		tiles: make(map[image.Point]*game.Tile, area),
+		units: make(map[*game.Unit]bool, 0),
+	}
 }
 
-func (m *Screen) Draw(screen *ebiten.Image, cameraX, cameraY int) {
-	for _, column := range m.tiles {
-		if column == nil {
-			continue
-		}
-		for _, t := range column {
-			if t == nil {
-				continue
+func (s *Screen) Draw(screen *ebiten.Image, cameraX, cameraY int) {
+	for _, t := range s.tiles {
+		if t != nil {
+			DrawTile(t, screen, cameraX, cameraY)
+			if t.Unit != nil {
+				s.units[t.Unit] = t.Visible
 			}
-			p := t.Point
-
-			op := &ebiten.DrawImageOptions{}
-
-			if !t.visible {
-				// Create a new color matrix and set the brightness to a lower value
-				cm := ebiten.ColorM{}
-				cm.Scale(0.5, 0.5, 0.5, 1.0) // Make the tile darker
-				op.ColorM = cm
-			}
-
-			op.GeoM.Translate(float64(p.X*tileSize-cameraX), float64(p.Y*tileSize-cameraY))
-			screen.DrawImage(getBackgroundColorImage(t.BackStyleClass), op)
-
-			tileSpriteNo := getTile(t.FrontStyleClass)
-			sx := (tileSpriteNo % tileSpriteXNum) * tileSpriteSize
-			sy := (tileSpriteNo / tileSpriteXNum) * tileSpriteSize
-
-			screen.DrawImage(tilesImage.SubImage(image.Rect(sx, sy, sx+tileSpriteSize, sy+tileSpriteSize)).(*ebiten.Image), op)
 		}
 	}
+	for u, visible := range s.units {
+		if visible {
+			DrawUnit(u, screen, cameraX, cameraY)
+		}
+	}
+}
+
+func DrawTile(t *game.Tile, screen *ebiten.Image, cameraX, cameraY int) {
+	p := t.Point
+
+	op := &ebiten.DrawImageOptions{}
+
+	if !t.Visible {
+		// Create a new color matrix and set the brightness to a lower value
+		cm := ebiten.ColorM{}
+		cm.Scale(0.5, 0.5, 0.5, 1.0) // Make the tile darker
+		op.ColorM = cm
+	}
+
+	op.GeoM.Translate(float64(p.X*tileSize-cameraX), float64(p.Y*tileSize-cameraY))
+	screen.DrawImage(getBackgroundColorImage(t.BackStyleClass), op)
+
+	tileSpriteNo := getTile(t.FrontStyleClass)
+	sx := (tileSpriteNo % tileSpriteXNum) * tileSpriteSize
+	sy := (tileSpriteNo / tileSpriteXNum) * tileSpriteSize
+
+	screen.DrawImage(tilesImage.SubImage(image.Rect(sx, sy, sx+tileSpriteSize, sy+tileSpriteSize)).(*ebiten.Image), op)
+}
+
+func DrawUnit(u *game.Unit, screen *ebiten.Image, cameraX, cameraY int) {
+	screenPosition := u.Position.Mul(tileSize)
+	x := screenPosition.X - float64(cameraX)
+	y := screenPosition.Y - float64(cameraY)
+
+	if u.Selected {
+		col := color.RGBA{0, 255, 0, 255}
+		ebitenutil.DrawRect(screen, x-selectedBorder, y-selectedBorder, float64(u.Size.X+(selectedBorder*2)), float64(u.Size.Y+(selectedBorder*2)), col)
+	}
+
+	ebitenutil.DrawRect(screen, x, y, float64(u.Size.X), float64(u.Size.Y), u.Color)
 }
 
 func getBackgroundColorImage(className string) *ebiten.Image {
@@ -116,5 +151,13 @@ func getTile(className string) int {
 		return 78
 	default:
 		return 0
+	}
+}
+
+func getRect(u *game.Unit) image.Rectangle {
+	screenPosition := u.Position.Mul(tileSize)
+	return image.Rectangle{
+		Min: screenPosition.ImagePoint(),
+		Max: screenPosition.Add(game.ToPF(u.Size)).ImagePoint(),
 	}
 }

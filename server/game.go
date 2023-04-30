@@ -11,13 +11,13 @@ import (
 
 type Game struct {
 	*game.Game
-	store        *serverStore
+	store        game.Store
 	worldService world.WorldService
 	mux          *sync.Mutex
 	starting     map[image.Point]*game.PlayerIdType
 }
 
-func NewGame(store *serverStore, worldService world.WorldService) *Game {
+func NewGame(store game.Store, worldService world.WorldService) *Game {
 	g := &Game{
 		store:        store,
 		Game:         game.NewGame(store),
@@ -45,10 +45,10 @@ func (g *Game) HandleAction(action game.Action, dispatch game.DispatchFunc) {
 }
 
 func (g *Game) handlePlayerJoinAction(action game.PlayerJoinAction, dispatch game.DispatchFunc) {
-	player := &action.Payload
+	player := action.Payload
 	id := player.Id
-	_, existing := g.store.players[id]
-	g.store.players[id] = player
+	_, existing := g.store.GetPlayer(id)
+	g.store.StorePlayer(player)
 
 	successAction := game.PlayerJoinSuccessAction{
 		Type: game.PlayerJoinSuccessActionType,
@@ -58,10 +58,10 @@ func (g *Game) handlePlayerJoinAction(action game.PlayerJoinAction, dispatch gam
 			Players:  make([]game.Player, 0),
 		},
 	}
-	for _, unit := range g.store.units {
+	for _, unit := range g.store.GetAllUnits() {
 		successAction.Payload.Units = append(successAction.Payload.Units, *unit)
 	}
-	for _, player := range g.store.players {
+	for _, player := range g.store.GetAllPlayers() {
 		successAction.Payload.Players = append(successAction.Payload.Players, *player)
 	}
 	dispatch(successAction)
@@ -89,13 +89,13 @@ func (g *Game) handlePlayerJoinAction(action game.PlayerJoinAction, dispatch gam
 
 func (g *Game) handleMapLoadAction(action game.MapLoadAction, dispatch game.DispatchFunc) {
 
-	_, ok1 := g.store.tiles[image.Pt(action.Payload.MinX, action.Payload.MinY)]
-	_, ok2 := g.store.tiles[image.Pt(action.Payload.MaxX, action.Payload.MaxY)]
+	_, ok1 := g.store.GetTile(image.Pt(action.Payload.MinX, action.Payload.MinY))
+	_, ok2 := g.store.GetTile(image.Pt(action.Payload.MaxX, action.Payload.MaxY))
 	if ok1 && ok2 {
 		tiles := make([]world.Tile, 0)
 		for x := action.Payload.MinX; x <= action.Payload.MaxX; x++ {
 			for y := action.Payload.MinY; y <= action.Payload.MaxY; y++ {
-				t, ok := g.store.tiles[image.Pt(x, y)]
+				t, ok := g.store.GetTile(image.Pt(x, y))
 				if !ok {
 					continue
 				}

@@ -78,7 +78,7 @@ func main() {
 
 	c := newClient(playerId, ws)
 
-	g := NewGame(playerId, newClientStore(), c.queue)
+	g := NewGame(playerId, game.NewStoreImpl(), c.queue)
 	c.game = g
 
 	// Read messages from the server

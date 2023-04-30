@@ -6,5 +6,6 @@ import (
 
 type Tile struct {
 	*world.Tile
-	UnitId UnitIdType
+	Unit    *Unit
+	Visible bool
 }

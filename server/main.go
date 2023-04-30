@@ -26,7 +26,7 @@ func newServer(g *Game) *server {
 }
 
 func main() {
-	s := newServer(NewGame(newServerStore(), world.NewWorldService()))
+	s := newServer(NewGame(game.NewStoreImpl(), world.NewWorldService()))
 
 	// Configure websocket route
 	http.HandleFunc("/ws", s.handleConnections)

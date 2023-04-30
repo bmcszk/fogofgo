@@ -37,7 +37,7 @@ func (g *Game) HandleAction(action Action, dispatch DispatchFunc) {
 
 func (g *Game) handlePlayerJoinSuccessAction(action PlayerJoinSuccessAction, dispatch DispatchFunc) {
 	for _, u := range action.Payload.Units {
-		unit := u
+		unit := &u
 		unit.dispatch = dispatch
 		g.store.StoreUnit(unit)
 		if err := g.placeUnit(unit); err != nil {
@@ -51,7 +51,7 @@ func (g *Game) handlePlayerJoinSuccessAction(action PlayerJoinSuccessAction, dis
 }
 
 func (g *Game) handleSpawnUnitAction(action SpawnUnitAction, dispatch DispatchFunc) {
-	unit := action.Payload
+	unit := &action.Payload
 	unit.dispatch = dispatch
 	g.store.StoreUnit(unit)
 	if err := g.placeUnit(unit); err != nil {
@@ -69,7 +69,7 @@ func (g *Game) handleMoveStartAction(action MoveStartAction) {
 func (g *Game) handleMoveStepAction(action MoveStepAction, dispatch DispatchFunc) {
 	//clean position
 	for _, tile := range g.store.GetTilesByUnitId(action.Payload.UnitId) {
-		tile.UnitId = ZeroUnitId
+		tile.Unit = nil
 	}
 	unit := g.store.GetUnitById(action.Payload.UnitId)
 
@@ -77,14 +77,14 @@ func (g *Game) handleMoveStepAction(action MoveStepAction, dispatch DispatchFunc
 	unit.Path = action.Payload.Path
 	unit.Step = action.Payload.Step
 
-	if err := g.placeUnit(*unit); err != nil {
+	if err := g.placeUnit(unit); err != nil {
 		log.Println(err)
 		//dispatch error action
 	}
 	//reserve next step
 	if len(action.Payload.Path) > action.Payload.Step {
 		nextStep := action.Payload.Path[action.Payload.Step]
-		if err := g.placeUnit(*unit, nextStep); err != nil {
+		if err := g.placeUnit(unit, nextStep); err != nil {
 			dispatch(MoveStopAction{
 				Type:    MoveStopActionType,
 				Payload: unit.Id,
@@ -115,7 +115,7 @@ func (g *Game) handleMapLoadSuccessAction(action MapLoadSuccessAction) {
 	}
 }
 
-func (g *Game) placeUnit(unit Unit, positions ...image.Point) error {
+func (g *Game) placeUnit(unit *Unit, positions ...image.Point) error {
 	if len(positions) == 0 {
 		positions = []image.Point{unit.Position.ImagePoint()}
 	}
@@ -126,10 +126,10 @@ func (g *Game) placeUnit(unit Unit, positions ...image.Point) error {
 		}
 
 		//set position
-		if t.UnitId != ZeroUnitId && t.UnitId != unit.Id {
+		if t.Unit != nil && t.Unit.Id != unit.Id {
 			return errors.New("position")
 		}
-		t.UnitId = unit.Id
+		t.Unit = unit
 	}
 
 	return nil
