@@ -21,6 +21,7 @@ type Store interface {
 	StoreTile(tile world.Tile) *Tile
 	GetTile(image.Point) (*Tile, bool)
 	CreateTile(image.Point) *Tile
+	GetTilesByRect(rect image.Rectangle) map[image.Point]*Tile
 }
 
 type StoreImpl struct {
@@ -117,6 +118,10 @@ func (s *StoreImpl) GetTilesByUnitId(id UnitIdType) []*Tile {
 func (s *StoreImpl) StoreTile(tile world.Tile) *Tile {
 	s.tilesMux.Lock()
 	defer s.tilesMux.Unlock()
+	return s.storeTile(tile)
+}
+
+func (s *StoreImpl) storeTile(tile world.Tile) *Tile {
 	if t, ok := s.tiles[tile.Point]; ok {
 		t.Tile = &tile
 	} else {
@@ -140,4 +145,25 @@ func (s *StoreImpl) CreateTile(point image.Point) *Tile {
 	return s.StoreTile(world.Tile{
 		Point: point,
 	})
+}
+
+func (s *StoreImpl) GetTilesByRect(rect image.Rectangle) map[image.Point]*Tile {
+	s.tilesMux.Lock()
+	defer s.tilesMux.Unlock()
+	size := rect.Size()
+	area := size.X * size.Y
+	r := make(map[image.Point]*Tile, area)
+	for x := rect.Min.X; x <= rect.Max.X; x++ {
+		for y := rect.Min.Y; y <= rect.Max.Y; y++ {
+			p := image.Pt(x, y)
+			t, ok := s.tiles[p]
+			if !ok {
+				t = s.storeTile(world.Tile{
+					Point: p,
+				})
+			}
+			r[p] = t
+		}
+	}
+	return r
 }

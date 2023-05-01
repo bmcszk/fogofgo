@@ -24,14 +24,22 @@ type screen struct {
 	units map[*game.Unit]bool
 }
 
-func newScreen(rect image.Rectangle) *screen {
-	size := rect.Size()
-	area := size.X * size.Y
+var emptyScreen = screen{
+	rect:  image.Rectangle{},
+	tiles: make(map[image.Point]*game.Tile),
+	units: make(map[*game.Unit]bool),
+}
+
+func newScreen(rect image.Rectangle, tiles map[image.Point]*game.Tile) *screen {
 	return &screen{
 		rect:  rect,
-		tiles: make(map[image.Point]*game.Tile, area),
+		tiles: tiles,
 		units: make(map[*game.Unit]bool, 0),
 	}
+}
+
+func (s *screen) is(rect image.Rectangle) bool {
+	return s.rect.Eq(rect)
 }
 
 func (s *screen) draw(enScreen *ebiten.Image, cameraX, cameraY int) {
@@ -151,13 +159,5 @@ func getTile(className string) int {
 		return 78
 	default:
 		return 0
-	}
-}
-
-func getRect(u *game.Unit) image.Rectangle {
-	screenPosition := u.Position.Mul(tileSize)
-	return image.Rectangle{
-		Min: screenPosition.ImagePoint(),
-		Max: screenPosition.Add(game.ToPF(u.Size)).ImagePoint(),
 	}
 }

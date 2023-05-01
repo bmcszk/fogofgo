@@ -35,7 +35,7 @@ func newClientGame(playerId game.PlayerIdType, store game.Store, queueFunc Queue
 		playerId:  playerId,
 		Game:      g,
 		queueFunc: queueFunc,
-		screen:    newScreen(image.Rectangle{}),
+		screen:    &emptyScreen,
 	}
 
 	return cg
@@ -71,8 +71,10 @@ func (g *clientGame) Layout(outsideWidth, outsideHeight int) (int, int) {
 	maxX, maxY := g.screenToWorldTiles(outsideWidth, outsideHeight)
 	rect := image.Rect(minX, minY, maxX, maxY)
 
-	if g.setScreen(rect) {
-		g.screen = g.newScreen(rect)
+	// If the map is not loaded, load it
+	if !g.screen.is(rect) {
+		g.queueMapLoadActions(rect)
+		g.screen = newScreen(rect, g.store.GetTilesByRect(rect))
 		g.updateVisibility()
 	}
 
@@ -198,10 +200,7 @@ func (g *clientGame) worldToScreen(worldX, worldY int) (int, int) {
 	return screenX, screenY
 }
 
-func (g *clientGame) setScreen(rect image.Rectangle) bool {
-	if g.screen.rect.Eq(rect) {
-		return false
-	}
+func (g *clientGame) queueMapLoadActions(rect image.Rectangle) {
 	currRect := g.screen.rect
 	if rect.Min.X < currRect.Min.X {
 		action := game.NewMapLoadAction(image.Rect(rect.Min.X, rect.Min.Y, currRect.Min.X, currRect.Max.Y), g.playerId)
@@ -219,21 +218,12 @@ func (g *clientGame) setScreen(rect image.Rectangle) bool {
 		action := game.NewMapLoadAction(image.Rect(currRect.Max.Y, currRect.Min.Y, rect.Max.X, rect.Max.Y), g.playerId)
 		g.queueFunc(action)
 	}
-	g.screen.rect = rect
-	return true
 }
 
-func (g *clientGame) newScreen(rect image.Rectangle) *screen {
-	s := newScreen(rect)
-	for x := rect.Min.X; x < rect.Max.X; x++ {
-		for y := rect.Min.Y; y < rect.Max.Y; y++ {
-			p := image.Pt(x, y)
-			t, ok := g.store.GetTile(p)
-			if !ok {
-				t = g.store.CreateTile(p)
-			}
-			s.tiles[p] = t
-		}
+func getRect(u *game.Unit) image.Rectangle {
+	screenPosition := u.Position.Mul(tileSize).ImagePoint()
+	return image.Rectangle{
+		Min: screenPosition,
+		Max: screenPosition.Add(u.Size),
 	}
-	return s
 }
