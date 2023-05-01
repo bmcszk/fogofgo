@@ -9,16 +9,16 @@ import (
 )
 
 type serverGame struct {
-	*game.Game
+	*game.GameLogic
 	store        game.Store
 	worldService world.WorldService
-	starting     map[image.Point]*game.PlayerIdType
+	starting     map[image.Point]*game.PlayerIdType // starting point for each player, very temporary solution
 }
 
 func newServerGame(store game.Store, worldService world.WorldService) *serverGame {
 	g := &serverGame{
 		store:        store,
-		Game:         game.NewGame(store),
+		GameLogic:    game.NewGameLogic(store),
 		worldService: worldService,
 		starting:     make(map[image.Point]*game.PlayerIdType),
 	}
@@ -32,7 +32,7 @@ func newServerGame(store game.Store, worldService world.WorldService) *serverGam
 
 func (g *serverGame) HandleAction(action game.Action, dispatch game.DispatchFunc) {
 	log.Printf("server handle %s", action.GetType())
-	g.Game.HandleAction(action, dispatch)
+	g.GameLogic.HandleAction(action, dispatch)
 	switch a := action.(type) {
 	case game.PlayerJoinAction:
 		g.handlePlayerJoinAction(a, dispatch)

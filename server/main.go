@@ -106,6 +106,7 @@ func (s *server) broadcastAll(action game.Action) {
 	}
 }
 
+// route - handler of outgoing actions
 func (s *server) route(c *comm.Client, action game.Action) error {
 	dispatch := func(a game.Action) {
 		if err := s.route(c, a); err != nil {

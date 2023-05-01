@@ -78,7 +78,7 @@ func main() {
 
 	c := newClient(playerId, ws)
 
-	g := newClientGame(playerId, game.NewStoreImpl(), c.queue)
+	g := newClientGame(playerId, game.NewStoreImpl(), c.processNewAction)
 	c.game = g
 
 	// Read messages from the server
@@ -161,13 +161,15 @@ func getPlayerId(name string) game.PlayerIdType {
 	return game.PlayerIdType(id)
 }
 
-func (c *client) queue(action game.Action) {
+// processNewAction - handler of new actions
+func (c *client) processNewAction(action game.Action) {
 	if err := c.Send(action); err != nil {
 		log.Println("route %w", err)
 	}
 	c.game.HandleAction(action, c.route)
 }
 
+// route - handler of outgoing actions
 func (c *client) route(action game.Action) {
 	if err := c.Send(action); err != nil {
 		log.Println("route %w", err)

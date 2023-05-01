@@ -15,27 +15,27 @@ const (
 	cameraSpeed = 2
 )
 
-type QueueFunc func(game.Action)
+type processNewActionFunc func(game.Action)
 
 type clientGame struct {
-	*game.Game
+	*game.GameLogic
 	store            game.Store
 	playerId         game.PlayerIdType
 	cameraX, cameraY int
 	centerX, centerY int
 	selectionBox     *image.Rectangle
-	queueFunc        QueueFunc
+	processNewAction processNewActionFunc
 	screen           *screen
 }
 
-func newClientGame(playerId game.PlayerIdType, store game.Store, queueFunc QueueFunc) *clientGame {
-	g := game.NewGame(store)
+func newClientGame(playerId game.PlayerIdType, store game.Store, processNewAction processNewActionFunc) *clientGame {
+	g := game.NewGameLogic(store)
 	cg := &clientGame{
-		store:     store,
-		playerId:  playerId,
-		Game:      g,
-		queueFunc: queueFunc,
-		screen:    &emptyScreen,
+		store:            store,
+		playerId:         playerId,
+		GameLogic:        g,
+		processNewAction: processNewAction,
+		screen:           &emptyScreen,
 	}
 
 	return cg
@@ -43,7 +43,7 @@ func newClientGame(playerId game.PlayerIdType, store game.Store, queueFunc Queue
 
 func (g *clientGame) HandleAction(action game.Action, dispatch game.DispatchFunc) {
 	log.Printf("client handle %s", action.GetType())
-	g.Game.HandleAction(action, dispatch)
+	g.GameLogic.HandleAction(action, dispatch)
 	switch action.(type) {
 	case game.SpawnUnitAction, game.MoveStepAction, game.PlayerJoinSuccessAction, game.MapLoadSuccessAction:
 		g.updateVisibility()
@@ -151,7 +151,7 @@ func (g *clientGame) Update() error {
 					Point:  image.Pt(tileX, tileY),
 				},
 			}
-			g.queueFunc(moveStartAction)
+			g.processNewAction(moveStartAction)
 		}
 	}
 
@@ -204,19 +204,19 @@ func (g *clientGame) queueMapLoadActions(rect image.Rectangle) {
 	currRect := g.screen.rect
 	if rect.Min.X < currRect.Min.X {
 		action := game.NewMapLoadAction(image.Rect(rect.Min.X, rect.Min.Y, currRect.Min.X, currRect.Max.Y), g.playerId)
-		g.queueFunc(action)
+		g.processNewAction(action)
 	}
 	if rect.Min.Y < currRect.Min.Y {
 		action := game.NewMapLoadAction(image.Rect(rect.Min.X, rect.Min.Y, currRect.Max.X, currRect.Min.Y), g.playerId)
-		g.queueFunc(action)
+		g.processNewAction(action)
 	}
 	if rect.Max.X > currRect.Max.X {
 		action := game.NewMapLoadAction(image.Rect(currRect.Min.X, currRect.Max.Y, rect.Max.X, rect.Max.Y), g.playerId)
-		g.queueFunc(action)
+		g.processNewAction(action)
 	}
 	if rect.Max.Y > currRect.Max.Y {
 		action := game.NewMapLoadAction(image.Rect(currRect.Max.Y, currRect.Min.Y, rect.Max.X, rect.Max.Y), g.playerId)
-		g.queueFunc(action)
+		g.processNewAction(action)
 	}
 }
 

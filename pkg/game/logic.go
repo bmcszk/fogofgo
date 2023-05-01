@@ -8,17 +8,21 @@ import (
 
 type DispatchFunc func(Action)
 
-type Game struct {
+type ActionsHandler interface {
+	HandleAction(Action, DispatchFunc)
+}
+
+type GameLogic struct {
 	store Store
 }
 
-func NewGame(store Store) *Game {
-	return &Game{
+func NewGameLogic(store Store) *GameLogic {
+	return &GameLogic{
 		store: store,
 	}
 }
 
-func (g *Game) HandleAction(action Action, dispatch DispatchFunc) {
+func (g *GameLogic) HandleAction(action Action, dispatch DispatchFunc) {
 	switch a := action.(type) {
 	case PlayerJoinSuccessAction:
 		g.handlePlayerJoinSuccessAction(a, dispatch)
@@ -35,7 +39,7 @@ func (g *Game) HandleAction(action Action, dispatch DispatchFunc) {
 	}
 }
 
-func (g *Game) handlePlayerJoinSuccessAction(action PlayerJoinSuccessAction, dispatch DispatchFunc) {
+func (g *GameLogic) handlePlayerJoinSuccessAction(action PlayerJoinSuccessAction, dispatch DispatchFunc) {
 	for _, u := range action.Payload.Units {
 		unit := &u
 		unit.dispatch = dispatch
@@ -50,7 +54,7 @@ func (g *Game) handlePlayerJoinSuccessAction(action PlayerJoinSuccessAction, dis
 	}
 }
 
-func (g *Game) handleSpawnUnitAction(action SpawnUnitAction, dispatch DispatchFunc) {
+func (g *GameLogic) handleSpawnUnitAction(action SpawnUnitAction, dispatch DispatchFunc) {
 	unit := &action.Payload
 	unit.dispatch = dispatch
 	g.store.StoreUnit(unit)
@@ -60,13 +64,13 @@ func (g *Game) handleSpawnUnitAction(action SpawnUnitAction, dispatch DispatchFu
 	}
 }
 
-func (g *Game) handleMoveStartAction(action MoveStartAction) {
+func (g *GameLogic) handleMoveStartAction(action MoveStartAction) {
 	unit := g.store.GetUnitById(action.Payload.UnitId)
 
 	unit.MoveTo(action.Payload.Point)
 }
 
-func (g *Game) handleMoveStepAction(action MoveStepAction, dispatch DispatchFunc) {
+func (g *GameLogic) handleMoveStepAction(action MoveStepAction, dispatch DispatchFunc) {
 	//clean position
 	for _, tile := range g.store.GetTilesByUnitId(action.Payload.UnitId) {
 		tile.Unit = nil
@@ -102,20 +106,20 @@ func (g *Game) handleMoveStepAction(action MoveStepAction, dispatch DispatchFunc
 	}
 }
 
-func (g *Game) handleMoveStopAction(action MoveStopAction) {
+func (g *GameLogic) handleMoveStopAction(action MoveStopAction) {
 	unit := g.store.GetUnitById(action.Payload)
 
 	unit.Path = []image.Point{}
 	unit.Step = 0
 }
 
-func (g *Game) handleMapLoadSuccessAction(action MapLoadSuccessAction) {
+func (g *GameLogic) handleMapLoadSuccessAction(action MapLoadSuccessAction) {
 	for _, t := range action.Payload.Tiles {
 		g.store.StoreTile(t)
 	}
 }
 
-func (g *Game) placeUnit(unit *Unit, positions ...image.Point) error {
+func (g *GameLogic) placeUnit(unit *Unit, positions ...image.Point) error {
 	if len(positions) == 0 {
 		positions = []image.Point{unit.Position.ImagePoint()}
 	}
