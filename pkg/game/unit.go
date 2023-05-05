@@ -42,7 +42,6 @@ type Unit struct {
 	Velocity PF `json:"-"`
 	Path     []image.Point
 	Step     int
-	dispatch DispatchFunc `json:"-"`
 	ISee     []image.Point
 }
 
@@ -87,7 +86,7 @@ func plan(path []image.Point, target image.Point) []image.Point {
 	return plan(path, target)
 }
 
-func (u *Unit) Update() {
+func (u *Unit) Update(dispatch DispatchFunc) {
 	if len(u.Path) <= u.Step {
 		return
 	}
@@ -99,7 +98,7 @@ func (u *Unit) Update() {
 		u.Velocity = NewPF(0, 0)
 		u.Position = ToPF(u.Path[u.Step])
 		u.Step = u.Step + 1
-		u.dispatchStep()
+		dispatch(u.newMoveAction())
 	} else {
 		dx, dy = dx/dist, dy/dist
 		u.Velocity = NewPF(dx*UnitSpeed, dy*UnitSpeed)
@@ -107,8 +106,8 @@ func (u *Unit) Update() {
 	}
 }
 
-func (u *Unit) dispatchStep() {
-	moveAction := MoveStepAction{
+func (u *Unit) newMoveAction() MoveStepAction {
+	return MoveStepAction{
 		Type: MoveStepActionType,
 		Payload: MoveStepPayload{
 			UnitId:   u.Id,
@@ -117,5 +116,4 @@ func (u *Unit) dispatchStep() {
 			Step:     u.Step,
 		},
 	}
-	u.dispatch(moveAction)
 }

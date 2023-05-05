@@ -42,7 +42,6 @@ func (g *GameLogic) HandleAction(action Action, dispatch DispatchFunc) {
 func (g *GameLogic) handlePlayerJoinSuccessAction(action PlayerJoinSuccessAction, dispatch DispatchFunc) {
 	for _, u := range action.Payload.Units {
 		unit := &u
-		unit.dispatch = dispatch
 		g.store.StoreUnit(unit)
 		if err := g.placeUnit(unit); err != nil {
 			log.Println(err)
@@ -56,7 +55,6 @@ func (g *GameLogic) handlePlayerJoinSuccessAction(action PlayerJoinSuccessAction
 
 func (g *GameLogic) handleSpawnUnitAction(action SpawnUnitAction, dispatch DispatchFunc) {
 	unit := &action.Payload
-	unit.dispatch = dispatch
 	g.store.StoreUnit(unit)
 	if err := g.placeUnit(unit); err != nil {
 		log.Println(err)

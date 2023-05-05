@@ -15,8 +15,6 @@ const (
 	cameraSpeed = 2
 )
 
-type processNewActionFunc func(game.Action)
-
 type clientGame struct {
 	*game.GameLogic
 	store            game.Store
@@ -24,18 +22,18 @@ type clientGame struct {
 	cameraX, cameraY int
 	centerX, centerY int
 	selectionBox     *image.Rectangle
-	processNewAction processNewActionFunc
+	enDispatch       game.DispatchFunc
 	screen           *screen
 }
 
-func newClientGame(playerId game.PlayerIdType, store game.Store, processNewAction processNewActionFunc) *clientGame {
+func newClientGame(playerId game.PlayerIdType, store game.Store, enDispatch game.DispatchFunc) *clientGame {
 	g := game.NewGameLogic(store)
 	cg := &clientGame{
-		store:            store,
-		playerId:         playerId,
-		GameLogic:        g,
-		processNewAction: processNewAction,
-		screen:           &emptyScreen,
+		store:      store,
+		playerId:   playerId,
+		GameLogic:  g,
+		enDispatch: enDispatch,
+		screen:     &emptyScreen,
 	}
 
 	return cg
@@ -151,12 +149,12 @@ func (g *clientGame) Update() error {
 					Point:  image.Pt(tileX, tileY),
 				},
 			}
-			g.processNewAction(moveStartAction)
+			g.enDispatch(moveStartAction)
 		}
 	}
 
 	for _, u := range g.store.GetAllUnits() {
-		u.Update()
+		u.Update(g.enDispatch)
 	}
 
 	return nil
@@ -204,19 +202,19 @@ func (g *clientGame) queueMapLoadActions(rect image.Rectangle) {
 	currRect := g.screen.rect
 	if rect.Min.X < currRect.Min.X {
 		action := game.NewMapLoadAction(image.Rect(rect.Min.X, rect.Min.Y, currRect.Min.X, currRect.Max.Y), g.playerId)
-		g.processNewAction(action)
+		g.enDispatch(action)
 	}
 	if rect.Min.Y < currRect.Min.Y {
 		action := game.NewMapLoadAction(image.Rect(rect.Min.X, rect.Min.Y, currRect.Max.X, currRect.Min.Y), g.playerId)
-		g.processNewAction(action)
+		g.enDispatch(action)
 	}
 	if rect.Max.X > currRect.Max.X {
 		action := game.NewMapLoadAction(image.Rect(currRect.Min.X, currRect.Max.Y, rect.Max.X, rect.Max.Y), g.playerId)
-		g.processNewAction(action)
+		g.enDispatch(action)
 	}
 	if rect.Max.Y > currRect.Max.Y {
 		action := game.NewMapLoadAction(image.Rect(currRect.Max.Y, currRect.Min.Y, rect.Max.X, rect.Max.Y), g.playerId)
-		g.processNewAction(action)
+		g.enDispatch(action)
 	}
 }
 
