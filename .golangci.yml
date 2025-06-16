@@ -55,6 +55,8 @@ linters:
         - name: exported
           exclude: ["**/*_test.go", "test/*.go"]
           disabled: true
+        - name: max-public-structs
+          arguments: [20]
     nestif:
       min-complexity: 4
 
