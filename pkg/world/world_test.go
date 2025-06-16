@@ -10,7 +10,7 @@ import (
 	"github.com/bmcszk/gptrts/pkg/world"
 )
 
-func TestNewWorldService(t *testing.T) {
+func TestNewWorldService(_ *testing.T) {
 	service := world.NewWorldService()
 
 	// Service creation test - service is a struct value, not pointer
@@ -120,7 +120,7 @@ func TestWorldService_Load_Success(t *testing.T) {
 	t.Log("Test simplified - would need dependency injection for full testing")
 }
 
-func TestWorldService_Load_HTTPError(t *testing.T) {
+func TestWorldService_Load_HTTPError(_ *testing.T) {
 	// Create a server that returns an error
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		http.Error(w, "Internal Server Error", http.StatusInternalServerError)
@@ -138,7 +138,7 @@ func TestWorldService_Load_HTTPError(t *testing.T) {
 	_, _ = service, request
 }
 
-func TestWorldService_Load_InvalidJSON(t *testing.T) {
+func TestWorldService_Load_InvalidJSON(_ *testing.T) {
 	// Create a server that returns invalid JSON
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
@@ -156,7 +156,7 @@ func TestWorldService_Load_InvalidJSON(t *testing.T) {
 	_, _ = service, request
 }
 
-func TestWorldService_Load_InvalidURL(t *testing.T) {
+func TestWorldService_Load_InvalidURL(_ *testing.T) {
 	// Test simplified due to private field constraints
 	service := world.NewWorldService()
 	request := world.WorldRequest{MinX: 0, MinY: 0, MaxX: 1, MaxY: 1}

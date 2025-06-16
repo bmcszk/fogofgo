@@ -99,68 +99,105 @@ type MapLoadSuccessPayload struct {
 }
 
 func UnmarshalAction(bytes []byte) (Action, error) {
-	var msg GenericAction[any]
-	if err := json.Unmarshal(bytes, &msg); err != nil {
+	actionType, err := extractActionType(bytes)
+	if err != nil {
 		return nil, err
 	}
-	switch msg.Type {
+
+	return unmarshalByType(bytes, actionType)
+}
+
+func extractActionType(bytes []byte) (ActionType, error) {
+	var msg GenericAction[any]
+	if err := json.Unmarshal(bytes, &msg); err != nil {
+		return "", err
+	}
+	return msg.Type, nil
+}
+
+func unmarshalByType(bytes []byte, actionType ActionType) (Action, error) {
+	switch actionType {
 	case PlayerJoinActionType:
-		var action PlayerJoinAction
-		if err := json.Unmarshal(bytes, &action); err != nil {
-			return nil, err
-		}
-		return action, nil
-
+		return unmarshalPlayerJoinAction(bytes)
 	case PlayerJoinSuccessActionType:
-		var action PlayerJoinSuccessAction
-		if err := json.Unmarshal(bytes, &action); err != nil {
-			return nil, err
-		}
-		return action, nil
-
+		return unmarshalPlayerJoinSuccessAction(bytes)
 	case SpawnUnitActionType:
-		var action SpawnUnitAction
-		if err := json.Unmarshal(bytes, &action); err != nil {
-			return nil, err
-		}
-		return action, nil
-
+		return unmarshalSpawnUnitAction(bytes)
 	case MoveStartActionType:
-		var action MoveStartAction
-		if err := json.Unmarshal(bytes, &action); err != nil {
-			return nil, err
-		}
-		return action, nil
-
+		return unmarshalMoveStartAction(bytes)
 	case MoveStepActionType:
-		var action MoveStepAction
-		if err := json.Unmarshal(bytes, &action); err != nil {
-			return nil, err
-		}
-		return action, nil
-
+		return unmarshalMoveStepAction(bytes)
 	case MoveStopActionType:
-		var action MoveStopAction
-		if err := json.Unmarshal(bytes, &action); err != nil {
-			return nil, err
-		}
-		return action, nil
-
+		return unmarshalMoveStopAction(bytes)
 	case MapLoadActionType:
-		var action MapLoadAction
-		if err := json.Unmarshal(bytes, &action); err != nil {
-			return nil, err
-		}
-		return action, nil
-
+		return unmarshalMapLoadAction(bytes)
 	case MapLoadSuccessActionType:
-		var action MapLoadSuccessAction
-		if err := json.Unmarshal(bytes, &action); err != nil {
-			return nil, err
-		}
-		return action, nil
-
+		return unmarshalMapLoadSuccessAction(bytes)
 	default:
 		return nil, errors.New("action type unrecognized")
 	}
+}
+
+func unmarshalPlayerJoinAction(bytes []byte) (Action, error) {
+	var action PlayerJoinAction
+	if err := json.Unmarshal(bytes, &action); err != nil {
+		return nil, err
+	}
+	return action, nil
+}
+
+func unmarshalPlayerJoinSuccessAction(bytes []byte) (Action, error) {
+	var action PlayerJoinSuccessAction
+	if err := json.Unmarshal(bytes, &action); err != nil {
+		return nil, err
+	}
+	return action, nil
+}
+
+func unmarshalSpawnUnitAction(bytes []byte) (Action, error) {
+	var action SpawnUnitAction
+	if err := json.Unmarshal(bytes, &action); err != nil {
+		return nil, err
+	}
+	return action, nil
+}
+
+func unmarshalMoveStartAction(bytes []byte) (Action, error) {
+	var action MoveStartAction
+	if err := json.Unmarshal(bytes, &action); err != nil {
+		return nil, err
+	}
+	return action, nil
+}
+
+func unmarshalMoveStepAction(bytes []byte) (Action, error) {
+	var action MoveStepAction
+	if err := json.Unmarshal(bytes, &action); err != nil {
+		return nil, err
+	}
+	return action, nil
+}
+
+func unmarshalMoveStopAction(bytes []byte) (Action, error) {
+	var action MoveStopAction
+	if err := json.Unmarshal(bytes, &action); err != nil {
+		return nil, err
+	}
+	return action, nil
+}
+
+func unmarshalMapLoadAction(bytes []byte) (Action, error) {
+	var action MapLoadAction
+	if err := json.Unmarshal(bytes, &action); err != nil {
+		return nil, err
+	}
+	return action, nil
+}
+
+func unmarshalMapLoadSuccessAction(bytes []byte) (Action, error) {
+	var action MapLoadSuccessAction
+	if err := json.Unmarshal(bytes, &action); err != nil {
+		return nil, err
+	}
+	return action, nil
 }
