@@ -55,9 +55,9 @@ func (p PF) Round() PF {
 	return NewPF(math.Round(p.X), math.Round(p.Y))
 }
 
-func (p PF) Ints() (int, int) {
-	p = p.Round()
-	return int(p.X), int(p.Y)
+func (p PF) Ints() (x, y int) {
+	rounded := p.Round()
+	return int(rounded.X), int(rounded.Y)
 }
 
 func (p PF) Dist(target PF) float64 {

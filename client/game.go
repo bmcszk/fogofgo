@@ -8,7 +8,7 @@ import (
 	"github.com/bmcszk/gptrts/pkg/convert"
 	"github.com/bmcszk/gptrts/pkg/game"
 	"github.com/hajimehoshi/ebiten/v2"
-	"github.com/hajimehoshi/ebiten/v2/ebitenutil"
+	"github.com/hajimehoshi/ebiten/v2/vector"
 )
 
 const (
@@ -48,7 +48,7 @@ func (g *clientGame) HandleAction(action game.Action, dispatch game.DispatchFunc
 	}
 }
 
-func (g *clientGame) Layout(outsideWidth, outsideHeight int) (int, int) {
+func (g *clientGame) Layout(outsideWidth, outsideHeight int) (screenWidth, screenHeight int) {
 	/* // Calculate the desired screen size based on the size of the map
 	sw := len(g.Map.Tiles[0]) * tileSize
 	sh := len(g.Map.Tiles) * tileSize
@@ -90,12 +90,19 @@ func (g *clientGame) Draw(enScreen *ebiten.Image) {
 		x2, y2 := g.worldToScreen(r.Max.X, r.Max.Y)
 
 		col := color.RGBA{0, 255, 0, 128}
-		ebitenutil.DrawRect(enScreen, float64(x1), float64(y1), float64(x2-x1), float64(y2-y1), col)
+		vector.DrawFilledRect(enScreen, float32(x1), float32(y1), float32(x2-x1), float32(y2-y1), col, false)
 	}
 }
 
 func (g *clientGame) Update() error {
-	// Move camera with arrow keys
+	g.handleCameraMovement()
+	g.handleUnitSelection()
+	g.handleUnitMovement()
+	g.updateUnits()
+	return nil
+}
+
+func (g *clientGame) handleCameraMovement() {
 	if ebiten.IsKeyPressed(ebiten.KeyArrowLeft) {
 		g.cameraX -= cameraSpeed
 	}
@@ -108,8 +115,9 @@ func (g *clientGame) Update() error {
 	if ebiten.IsKeyPressed(ebiten.KeyArrowDown) {
 		g.cameraY += cameraSpeed
 	}
+}
 
-	// Handle left mouse button click to select units
+func (g *clientGame) handleUnitSelection() {
 	if ebiten.IsMouseButtonPressed(ebiten.MouseButtonLeft) && ebiten.IsFocused() {
 		mx, my := ebiten.CursorPosition()
 		worldX, worldY := g.screenToWorld(mx, my)
@@ -124,17 +132,22 @@ func (g *clientGame) Update() error {
 	}
 
 	if g.selectionBox != nil {
-		r := *g.selectionBox
-		for _, u := range g.store.GetAllUnits() {
-			if r.Canon().Overlaps(getRect(u)) {
-				u.Selected = true
-			} else if !ebiten.IsKeyPressed(ebiten.KeyShift) {
-				u.Selected = false
-			}
+		g.updateUnitSelectionFromBox()
+	}
+}
+
+func (g *clientGame) updateUnitSelectionFromBox() {
+	r := *g.selectionBox
+	for _, u := range g.store.GetAllUnits() {
+		if r.Canon().Overlaps(getRect(u)) {
+			u.Selected = true
+		} else if !ebiten.IsKeyPressed(ebiten.KeyShift) {
+			u.Selected = false
 		}
 	}
+}
 
-	// Handle right mouse button click to move selected units
+func (g *clientGame) handleUnitMovement() {
 	if ebiten.IsMouseButtonPressed(ebiten.MouseButtonRight) && ebiten.IsFocused() {
 		mx, my := ebiten.CursorPosition()
 		tileX, tileY := g.screenToWorldTiles(mx, my)
@@ -152,27 +165,46 @@ func (g *clientGame) Update() error {
 			g.enDispatch(moveStartAction)
 		}
 	}
+}
 
+func (g *clientGame) updateUnits() {
 	for _, u := range g.store.GetAllUnits() {
 		u.Update(g.enDispatch)
 	}
-
-	return nil
 }
 
 func (g *clientGame) updateVisibility() {
+	visibilityMap := g.buildVisibilityMap()
+	g.applyVisibilityMap(visibilityMap)
+}
+
+func (g *clientGame) buildVisibilityMap() map[image.Point]bool {
 	m := make(map[image.Point]bool, 0)
+
+	g.initializeVisibilityMap(m)
+	g.updateVisibilityFromUnits(m)
+
+	return m
+}
+
+func (g *clientGame) initializeVisibilityMap(m map[image.Point]bool) {
 	for _, t := range g.screen.tiles {
 		if t.Visible || t.Unit != nil {
 			m[t.Point] = false
 		}
 	}
+}
+
+func (g *clientGame) updateVisibilityFromUnits(m map[image.Point]bool) {
 	for _, unit := range g.store.GetUnitsByPlayerId(g.playerId) {
-		for _, vector := range unit.ISee {
-			p := unit.Position.ImagePoint().Add(vector)
+		for _, v := range unit.ISee {
+			p := unit.Position.ImagePoint().Add(v)
 			m[p] = true
 		}
 	}
+}
+
+func (g *clientGame) applyVisibilityMap(m map[image.Point]bool) {
 	for p, visible := range m {
 		if t, ok := g.screen.tiles[p]; ok {
 			t.Visible = visible
@@ -180,21 +212,21 @@ func (g *clientGame) updateVisibility() {
 	}
 }
 
-func (g *clientGame) screenToWorld(screenX, screenY int) (int, int) {
-	worldX := screenX + g.cameraX
-	worldY := screenY + g.cameraY
+func (g *clientGame) screenToWorld(screenX, screenY int) (worldX, worldY int) {
+	worldX = screenX + g.cameraX
+	worldY = screenY + g.cameraY
 	return worldX, worldY
 }
 
-func (g *clientGame) screenToWorldTiles(screenX, screenY int) (int, int) {
-	tileX := (screenX + g.cameraX) / tileSize
-	tileY := (screenY + g.cameraY) / tileSize
+func (g *clientGame) screenToWorldTiles(screenX, screenY int) (tileX, tileY int) {
+	tileX = (screenX + g.cameraX) / tileSize
+	tileY = (screenY + g.cameraY) / tileSize
 	return tileX, tileY
 }
 
-func (g *clientGame) worldToScreen(worldX, worldY int) (int, int) {
-	screenX := worldX - g.cameraX
-	screenY := worldY - g.cameraY
+func (g *clientGame) worldToScreen(worldX, worldY int) (screenX, screenY int) {
+	screenX = worldX - g.cameraX
+	screenY = worldY - g.cameraY
 	return screenX, screenY
 }
 

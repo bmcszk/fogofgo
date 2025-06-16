@@ -85,39 +85,53 @@ func (g *serverGame) handlePlayerJoinAction(action game.PlayerJoinAction, dispat
 }
 
 func (g *serverGame) handleMapLoadAction(action game.MapLoadAction, dispatch game.DispatchFunc) {
-
-	_, ok1 := g.store.GetTile(image.Pt(action.Payload.MinX, action.Payload.MinY))
-	_, ok2 := g.store.GetTile(image.Pt(action.Payload.MaxX, action.Payload.MaxY))
-	if ok1 && ok2 {
-		tiles := make([]world.Tile, 0)
-		for x := action.Payload.MinX; x <= action.Payload.MaxX; x++ {
-			for y := action.Payload.MinY; y <= action.Payload.MaxY; y++ {
-				t, ok := g.store.GetTile(image.Pt(x, y))
-				if !ok {
-					continue
-				}
-				tiles = append(tiles, *t.Tile)
-			}
-		}
-		successAction := game.MapLoadSuccessAction{
-			Type: game.MapLoadSuccessActionType,
-			Payload: game.MapLoadSuccessPayload{
-				WorldResponse: world.WorldResponse{Tiles: tiles},
-				PlayerId:      action.Payload.PlayerId,
-			},
-		}
-		dispatch(successAction)
+	if g.isMapDataCached(action) {
+		g.dispatchCachedMapData(action, dispatch)
 		return
-
 	}
 
+	g.loadMapFromWorldService(action, dispatch)
+}
+
+func (g *serverGame) isMapDataCached(action game.MapLoadAction) bool {
+	_, ok1 := g.store.GetTile(image.Pt(action.Payload.MinX, action.Payload.MinY))
+	_, ok2 := g.store.GetTile(image.Pt(action.Payload.MaxX, action.Payload.MaxY))
+	return ok1 && ok2
+}
+
+func (g *serverGame) dispatchCachedMapData(action game.MapLoadAction, dispatch game.DispatchFunc) {
+	tiles := g.extractTilesFromStore(action)
+	successAction := game.MapLoadSuccessAction{
+		Type: game.MapLoadSuccessActionType,
+		Payload: game.MapLoadSuccessPayload{
+			WorldResponse: world.WorldResponse{Tiles: tiles},
+			PlayerId:      action.Payload.PlayerId,
+		},
+	}
+	dispatch(successAction)
+}
+
+func (g *serverGame) extractTilesFromStore(action game.MapLoadAction) []world.Tile {
+	tiles := make([]world.Tile, 0)
+	for x := action.Payload.MinX; x <= action.Payload.MaxX; x++ {
+		for y := action.Payload.MinY; y <= action.Payload.MaxY; y++ {
+			t, ok := g.store.GetTile(image.Pt(x, y))
+			if !ok {
+				continue
+			}
+			tiles = append(tiles, *t.Tile)
+		}
+	}
+	return tiles
+}
+
+func (g *serverGame) loadMapFromWorldService(action game.MapLoadAction, dispatch game.DispatchFunc) {
 	resp, err := g.worldService.Load(action.Payload.WorldRequest)
 	if err != nil {
 		log.Printf("error loading map: %s", err)
 		return
-		// TODO: error handling
-		// TODO: send error to client
 	}
+
 	successAction := game.MapLoadSuccessAction{
 		Type: game.MapLoadSuccessActionType,
 		Payload: game.MapLoadSuccessPayload{

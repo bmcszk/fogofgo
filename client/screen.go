@@ -8,7 +8,7 @@ import (
 
 	"github.com/bmcszk/gptrts/pkg/game"
 	"github.com/hajimehoshi/ebiten/v2"
-	"github.com/hajimehoshi/ebiten/v2/ebitenutil"
+	"github.com/hajimehoshi/ebiten/v2/vector"
 )
 
 const (
@@ -43,14 +43,26 @@ func (s *screen) is(rect image.Rectangle) bool {
 }
 
 func (s *screen) draw(enScreen *ebiten.Image, cameraX, cameraY int) {
+	s.drawTiles(enScreen, cameraX, cameraY)
+	s.drawVisibleUnits(enScreen, cameraX, cameraY)
+}
+
+func (s *screen) drawTiles(enScreen *ebiten.Image, cameraX, cameraY int) {
 	for _, t := range s.tiles {
 		if t != nil {
 			drawTile(t, enScreen, cameraX, cameraY)
-			if t.Unit != nil {
-				s.units[t.Unit] = t.Visible
-			}
+			s.trackUnitVisibility(t)
 		}
 	}
+}
+
+func (s *screen) trackUnitVisibility(t *game.Tile) {
+	if t.Unit != nil {
+		s.units[t.Unit] = t.Visible
+	}
+}
+
+func (s *screen) drawVisibleUnits(enScreen *ebiten.Image, cameraX, cameraY int) {
 	for u, visible := range s.units {
 		if visible {
 			drawUnit(u, enScreen, cameraX, cameraY)
@@ -64,10 +76,8 @@ func drawTile(t *game.Tile, enScreen *ebiten.Image, cameraX, cameraY int) {
 	op := &ebiten.DrawImageOptions{}
 
 	if !t.Visible {
-		// Create a new color matrix and set the brightness to a lower value
-		cm := ebiten.ColorM{}
-		cm.Scale(0.5, 0.5, 0.5, 1.0) // Make the tile darker
-		op.ColorM = cm
+		// Use ColorScale for dimming instead of deprecated ColorM
+		op.ColorScale.Scale(0.5, 0.5, 0.5, 1.0) // Make the tile darker
 	}
 
 	op.GeoM.Translate(float64(p.X*tileSize-cameraX), float64(p.Y*tileSize-cameraY))
@@ -77,7 +87,8 @@ func drawTile(t *game.Tile, enScreen *ebiten.Image, cameraX, cameraY int) {
 	sx := (tileSpriteNo % tileSpriteXNum) * tileSpriteSize
 	sy := (tileSpriteNo / tileSpriteXNum) * tileSpriteSize
 
-	enScreen.DrawImage(tilesImage.SubImage(image.Rect(sx, sy, sx+tileSpriteSize, sy+tileSpriteSize)).(*ebiten.Image), op)
+	subImage := tilesImage.SubImage(image.Rect(sx, sy, sx+tileSpriteSize, sy+tileSpriteSize))
+	enScreen.DrawImage(subImage.(*ebiten.Image), op)
 }
 
 func drawUnit(u *game.Unit, enScreen *ebiten.Image, cameraX, cameraY int) {
@@ -87,10 +98,13 @@ func drawUnit(u *game.Unit, enScreen *ebiten.Image, cameraX, cameraY int) {
 
 	if u.Selected {
 		col := color.RGBA{0, 255, 0, 255}
-		ebitenutil.DrawRect(enScreen, x-selectedBorder, y-selectedBorder, float64(u.Size.X+(selectedBorder*2)), float64(u.Size.Y+(selectedBorder*2)), col)
+		borderWidth := float32(u.Size.X + (selectedBorder * 2))
+		borderHeight := float32(u.Size.Y + (selectedBorder * 2))
+		vector.DrawFilledRect(enScreen, float32(x-selectedBorder), float32(y-selectedBorder),
+			borderWidth, borderHeight, col, false)
 	}
 
-	ebitenutil.DrawRect(enScreen, x, y, float64(u.Size.X), float64(u.Size.Y), u.Color)
+	vector.DrawFilledRect(enScreen, float32(x), float32(y), float32(u.Size.X), float32(u.Size.Y), u.Color, false)
 }
 
 func getBackgroundColorImage(className string) *ebiten.Image {
@@ -119,45 +133,43 @@ func getBackgroundColorImage(className string) *ebiten.Image {
 func getColorFromHex(colorStr string) color.Color {
 	b, err := hex.DecodeString(colorStr)
 	if err != nil {
-		log.Fatal(err)
+		log.Printf("Error decoding hex color %s: %v", colorStr, err)
+		return color.RGBA{0, 0, 0, 0}
 	}
 
 	return color.RGBA{b[0], b[1], b[2], b[3]}
 }
 
+var tileMap = map[string]int{
+	"plain1":    0,
+	"plain2":    1,
+	"plain3":    2,
+	"forest1":   3,
+	"forest2":   4,
+	"forest3":   5,
+	"sea1":      99,
+	"sea2":      99,
+	"sea3":      99,
+	"river1":    99,
+	"river2":    99,
+	"river3":    99,
+	"mountain1": 10,
+	"mountain2": 11,
+	"mountain3": 12,
+	"hill1":     13,
+	"hill2":     13,
+	"hill3":     13,
+	"lake1":     18,
+	"lake2":     19,
+	"lake3":     20,
+	"sand1":     78,
+	"sand2":     78,
+	"sand3":     78,
+}
+
 func getTile(className string) int {
-	switch className {
-	case "plain1":
-		return 0
-	case "plain2":
-		return 1
-	case "plain3":
-		return 2
-	case "forest1":
-		return 3
-	case "forest2":
-		return 4
-	case "forest3":
-		return 5
-	case "sea1", "sea2", "sea3", "river1", "river2", "river3":
-		return 99
-	case "mountain1":
-		return 10
-	case "mountain2":
-		return 11
-	case "mountain3":
-		return 12
-	case "hill1", "hill2", "hill3":
-		return 13
-	case "lake1":
-		return 18
-	case "lake2":
-		return 19
-	case "lake3":
-		return 20
-	case "sand1", "sand2", "sand3":
-		return 78
-	default:
-		return 0
+	if tileNum, exists := tileMap[className]; exists {
+		return tileNum
 	}
+	return 0
 }

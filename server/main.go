@@ -43,10 +43,15 @@ func (s *server) handleConnections(w http.ResponseWriter, r *http.Request) {
 	// Upgrade initial GET request to a websocket
 	ws, err := upgrader.Upgrade(w, r, nil)
 	if err != nil {
-		log.Fatal(err)
+		log.Printf("Failed to upgrade connection: %v", err)
+		return
 	}
 	// Make sure we close the connection when the function returns
-	defer ws.Close()
+	defer func() {
+		if err := ws.Close(); err != nil {
+			log.Printf("Error closing websocket: %v", err)
+		}
+	}()
 
 	// Register our new client
 	client := comm.NewClient(ws)

@@ -2,7 +2,6 @@ package main
 
 import (
 	"crypto/md5"
-	"errors"
 	"image"
 	"image/color"
 	"log"
@@ -66,22 +65,54 @@ func init() {
 
 func main() {
 	name := getName()
+	if name == "" {
+		os.Exit(1)
+	}
+
 	playerId := getPlayerId(name)
+	if playerId == (game.PlayerIdType{}) {
+		os.Exit(1)
+	}
+
+	ws := connectToServer()
+	if ws == nil {
+		os.Exit(1)
+	}
+	defer closeWebSocket(ws)
+
+	client := setupClient(playerId, ws)
+	startMessageHandler(client)
+	sendPlayerJoinAction(client, playerId, name)
+
+	runGame(client.game, name)
+}
+
+func connectToServer() *websocket.Conn {
 	u := url.URL{Scheme: "ws", Host: "localhost:8000", Path: "/ws"}
 	log.Printf("connecting to %s", u.String())
 
 	ws, _, err := websocket.DefaultDialer.Dial(u.String(), nil)
 	if err != nil {
-		log.Fatal("dial:", err)
+		log.Printf("dial error: %v", err)
+		return nil
 	}
-	defer ws.Close()
+	return ws
+}
 
+func closeWebSocket(ws *websocket.Conn) {
+	if err := ws.Close(); err != nil {
+		log.Printf("Error closing websocket: %v", err)
+	}
+}
+
+func setupClient(playerId game.PlayerIdType, ws *websocket.Conn) *client {
 	c := newClient(playerId, ws)
-
 	g := newClientGame(playerId, game.NewStoreImpl(), c.processNewAction)
 	c.game = g
+	return c
+}
 
-	// Read messages from the server
+func startMessageHandler(c *client) {
 	go func() {
 		for c.Connected {
 			action, err := c.HandleInMessages()
@@ -89,11 +120,13 @@ func main() {
 				log.Println(err)
 				continue
 			}
-			g.HandleAction(action, c.route)
+			c.game.HandleAction(action, c.route)
 		}
 	}()
+}
 
-	if err = c.Send(game.PlayerJoinAction{
+func sendPlayerJoinAction(c *client, playerId game.PlayerIdType, name string) {
+	if err := c.Send(game.PlayerJoinAction{
 		Type: game.PlayerJoinActionType,
 		Payload: game.Player{
 			Id:    playerId,
@@ -103,14 +136,16 @@ func main() {
 	}); err != nil {
 		log.Println(err)
 	}
+}
 
-	// start ebiten on main thread
+func runGame(g *clientGame, name string) {
 	ebiten.SetWindowSize(screenWidth, screenHeight)
 	ebiten.SetWindowResizingMode(ebiten.WindowResizingModeEnabled)
 	ebiten.SetWindowTitle(name)
 
 	if err := ebiten.RunGame(g); err != nil {
-		log.Fatal(err)
+		log.Printf("Game error: %v", err)
+		return
 	}
 }
 
@@ -147,7 +182,8 @@ func randomRGBA() color.RGBA {
 
 func getName() string {
 	if len(os.Args) < 2 {
-		log.Fatal(errors.New("agrument missing"))
+		log.Printf("Error: argument missing")
+		return ""
 	}
 	return os.Args[1]
 }
@@ -156,7 +192,8 @@ func getPlayerId(name string) game.PlayerIdType {
 	hash := md5.Sum([]byte(name))
 	id, err := uuid.FromBytes(hash[:])
 	if err != nil {
-		log.Fatal(err)
+		log.Printf("Error creating player ID: %v", err)
+		return game.PlayerIdType{}
 	}
 	return game.PlayerIdType(id)
 }

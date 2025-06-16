@@ -39,7 +39,7 @@ func (g *GameLogic) HandleAction(action Action, dispatch DispatchFunc) {
 	}
 }
 
-func (g *GameLogic) handlePlayerJoinSuccessAction(action PlayerJoinSuccessAction, dispatch DispatchFunc) {
+func (g *GameLogic) handlePlayerJoinSuccessAction(action PlayerJoinSuccessAction, _ DispatchFunc) {
 	for _, u := range action.Payload.Units {
 		unit := &u
 		g.store.StoreUnit(unit)
@@ -53,12 +53,12 @@ func (g *GameLogic) handlePlayerJoinSuccessAction(action PlayerJoinSuccessAction
 	}
 }
 
-func (g *GameLogic) handleSpawnUnitAction(action SpawnUnitAction, dispatch DispatchFunc) {
+func (g *GameLogic) handleSpawnUnitAction(action SpawnUnitAction, _ DispatchFunc) {
 	unit := &action.Payload
 	g.store.StoreUnit(unit)
 	if err := g.placeUnit(unit); err != nil {
 		log.Println(err)
-		//dispatch error action
+		// dispatch error action
 	}
 }
 
@@ -69,7 +69,7 @@ func (g *GameLogic) handleMoveStartAction(action MoveStartAction) {
 }
 
 func (g *GameLogic) handleMoveStepAction(action MoveStepAction, dispatch DispatchFunc) {
-	//clean position
+	// clean position
 	for _, tile := range g.store.GetTilesByUnitId(action.Payload.UnitId) {
 		tile.Unit = nil
 	}
@@ -81,9 +81,9 @@ func (g *GameLogic) handleMoveStepAction(action MoveStepAction, dispatch Dispatc
 
 	if err := g.placeUnit(unit); err != nil {
 		log.Println(err)
-		//dispatch error action
+		// dispatch error action
 	}
-	//reserve next step
+	// reserve next step
 	if len(action.Payload.Path) > action.Payload.Step {
 		nextStep := action.Payload.Path[action.Payload.Step]
 		if err := g.placeUnit(unit, nextStep); err != nil {
@@ -127,7 +127,7 @@ func (g *GameLogic) placeUnit(unit *Unit, positions ...image.Point) error {
 			t = g.store.CreateTile(p)
 		}
 
-		//set position
+		// set position
 		if t.Unit != nil && t.Unit.Id != unit.Id {
 			return errors.New("position")
 		}

@@ -118,10 +118,10 @@ func (s *StoreImpl) GetTilesByUnitId(id UnitIdType) []*Tile {
 func (s *StoreImpl) StoreTile(tile world.Tile) *Tile {
 	s.tilesMux.Lock()
 	defer s.tilesMux.Unlock()
-	return s.storeTile(tile)
+	return s.storeTileInternal(tile)
 }
 
-func (s *StoreImpl) storeTile(tile world.Tile) *Tile {
+func (s *StoreImpl) storeTileInternal(tile world.Tile) *Tile {
 	if t, ok := s.tiles[tile.Point]; ok {
 		t.Tile = &tile
 	} else {
@@ -158,7 +158,7 @@ func (s *StoreImpl) GetTilesByRect(rect image.Rectangle) map[image.Point]*Tile {
 			p := image.Pt(x, y)
 			t, ok := s.tiles[p]
 			if !ok {
-				t = s.storeTile(world.Tile{
+				t = s.storeTileInternal(world.Tile{
 					Point: p,
 				})
 			}
