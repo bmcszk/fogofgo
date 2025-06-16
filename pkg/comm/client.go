@@ -5,7 +5,7 @@ import (
 	"log"
 	"sync"
 
-	"github.com/bmcszk/gptrts/pkg/game"
+	"github.com/bmcszk/fogofgo/pkg/game"
 	"github.com/google/uuid"
 	"github.com/gorilla/websocket"
 )
