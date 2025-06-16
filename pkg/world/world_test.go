@@ -7,7 +7,7 @@ import (
 	"net/http/httptest"
 	"testing"
 
-	"github.com/bmcszk/gptrts/pkg/world"
+	"github.com/bmcszk/fogofgo/pkg/world"
 )
 
 func TestNewWorldService(_ *testing.T) {

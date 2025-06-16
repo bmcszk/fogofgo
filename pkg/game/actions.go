@@ -5,7 +5,7 @@ import (
 	"errors"
 	"image"
 
-	"github.com/bmcszk/gptrts/pkg/world"
+	"github.com/bmcszk/fogofgo/pkg/world"
 )
 
 type ActionType string

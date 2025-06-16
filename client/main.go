@@ -10,8 +10,8 @@ import (
 	"os"
 	"strings"
 
-	"github.com/bmcszk/gptrts/pkg/comm"
-	"github.com/bmcszk/gptrts/pkg/game"
+	"github.com/bmcszk/fogofgo/pkg/comm"
+	"github.com/bmcszk/fogofgo/pkg/game"
 	"github.com/google/uuid"
 	"github.com/gorilla/websocket"
 	"github.com/hajimehoshi/ebiten/v2"

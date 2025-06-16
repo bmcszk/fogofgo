@@ -4,7 +4,7 @@ import (
 	"image"
 	"sync"
 
-	"github.com/bmcszk/gptrts/pkg/world"
+	"github.com/bmcszk/fogofgo/pkg/world"
 )
 
 type Store interface {

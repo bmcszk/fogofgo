@@ -5,8 +5,8 @@ import (
 	"image/color"
 	"testing"
 
-	"github.com/bmcszk/gptrts/pkg/game"
-	"github.com/bmcszk/gptrts/pkg/world"
+	"github.com/bmcszk/fogofgo/pkg/game"
+	"github.com/bmcszk/fogofgo/pkg/world"
 	"github.com/google/uuid"
 )
 

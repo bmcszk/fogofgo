@@ -5,7 +5,7 @@ import (
 	"math"
 	"testing"
 
-	"github.com/bmcszk/gptrts/pkg/game"
+	"github.com/bmcszk/fogofgo/pkg/game"
 )
 
 func TestZeroPoint(t *testing.T) {

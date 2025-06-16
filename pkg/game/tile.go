@@ -1,7 +1,7 @@
 package game
 
 import (
-	"github.com/bmcszk/gptrts/pkg/world"
+	"github.com/bmcszk/fogofgo/pkg/world"
 )
 
 type Tile struct {

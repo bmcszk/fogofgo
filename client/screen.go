@@ -6,7 +6,7 @@ import (
 	"image/color"
 	"log"
 
-	"github.com/bmcszk/gptrts/pkg/game"
+	"github.com/bmcszk/fogofgo/pkg/game"
 	"github.com/hajimehoshi/ebiten/v2"
 	"github.com/hajimehoshi/ebiten/v2/vector"
 )

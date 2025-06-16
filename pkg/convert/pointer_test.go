@@ -4,7 +4,7 @@ import (
 	"image"
 	"testing"
 
-	"github.com/bmcszk/gptrts/pkg/convert"
+	"github.com/bmcszk/fogofgo/pkg/convert"
 )
 
 func TestToPointer(t *testing.T) {

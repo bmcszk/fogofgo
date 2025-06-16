@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-This is an experimental multiplayer Real-Time Strategy (RTS) game built with Go and ChatGPT assistance. The game uses Ebiten for 2D graphics and WebSocket for real-time multiplayer communication.
+This is **Fog of Go** (fogofgo), an experimental multiplayer Real-Time Strategy (RTS) game built with Go and ChatGPT assistance. The game uses Ebiten for 2D graphics and WebSocket for real-time multiplayer communication.
 
 ## Architecture
 
@@ -39,7 +39,7 @@ go build -o bin/server ./server
 # Run client (requires server to be running)
 ./bin/client
 
-# Run server (default port 8081)
+# Run server (default port 8000)
 ./bin/server
 ```
 
@@ -59,7 +59,18 @@ go mod vendor
 ```
 
 ### Testing
-Currently no unit tests exist in the codebase. When adding tests, use Go's standard testing framework with `*_test.go` files.
+The codebase includes comprehensive unit tests. Run tests using Go's standard testing framework:
+
+```bash
+# Run all tests
+go test ./...
+
+# Run tests for specific package
+go test ./pkg/game/
+
+# Run tests with verbose output
+go test -v ./...
+```
 
 ## External Dependencies
 
@@ -70,4 +81,4 @@ The game expects an external world service running on port 8080 that provides ma
 - Game assets (PNG files) are stored in `/client/` directory
 - All dependencies are managed via `go.mod` 
 - The project uses Go 1.23 with vendored dependencies
-- WebSocket communication happens on port 8081 by default
+- WebSocket communication happens on port 8000 by default

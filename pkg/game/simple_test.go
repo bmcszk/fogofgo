@@ -4,7 +4,7 @@ import (
 	"image"
 	"testing"
 
-	"github.com/bmcszk/gptrts/pkg/game"
+	"github.com/bmcszk/fogofgo/pkg/game"
 )
 
 func TestNewPF_Simple(t *testing.T) {

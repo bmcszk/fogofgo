@@ -1,4 +1,4 @@
-module github.com/bmcszk/gptrts
+module github.com/bmcszk/fogofgo
 
 go 1.23
 
